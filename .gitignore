@@ -1,0 +1,7 @@
+/Debug - S130
+
+*.bak
+
+xcode/Mesh.xcodeproj/xcuserdata/*
+xcode/Mesh.xcodeproj/project.xcworkspace/xcuserdata/*
+xcode/Mesh.xcodeproj/project.xcworkspace/xcshareddata/*.xccheckout

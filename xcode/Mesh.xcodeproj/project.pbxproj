@@ -1,0 +1,401 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		223024A11B1700A1002DA161 /* mesh.c in Sources */ = {isa = PBXBuildFile; fileRef = 2230249E1B1700A1002DA161 /* mesh.c */; };
+		223024A21B1700C8002DA161 /* mesh.c in Sources */ = {isa = PBXBuildFile; fileRef = 2230249E1B1700A1002DA161 /* mesh.c */; };
+		22590E5B1A6B9E55008A563B /* Helpers.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22590E5A1A6B9E55008A563B /* Helpers.swift */; };
+		2264535B1AE5CFDB00EC2513 /* Mesh2NodeUnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22590E5C1A6B9F34008A563B /* Mesh2NodeUnitTests.swift */; };
+		227AA92F1A60B1C1009CC595 /* main.c in Sources */ = {isa = PBXBuildFile; fileRef = 227AA92E1A60B1C1009CC595 /* main.c */; };
+		229031761AE6E0D6005F73D7 /* Mesh1NodeUnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22912A241A6B3C1A0068A7B3 /* Mesh1NodeUnitTests.swift */; };
+		229031771AE6E0D8005F73D7 /* Mesh16NodeUnitTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22912A101A6A42160068A7B3 /* Mesh16NodeUnitTests.swift */; };
+		22912A061A64A56E0068A7B3 /* simsystem.c in Sources */ = {isa = PBXBuildFile; fileRef = 22912A051A64A56E0068A7B3 /* simsystem.c */; };
+		22912A1E1A6A473C0068A7B3 /* simsystem.c in Sources */ = {isa = PBXBuildFile; fileRef = 22912A051A64A56E0068A7B3 /* simsystem.c */; };
+		22912A201A6B27BB0068A7B3 /* sim.c in Sources */ = {isa = PBXBuildFile; fileRef = 22912A1F1A6B27BB0068A7B3 /* sim.c */; };
+		22912A211A6B27BB0068A7B3 /* sim.c in Sources */ = {isa = PBXBuildFile; fileRef = 22912A1F1A6B27BB0068A7B3 /* sim.c */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		227AA9171A5F9D13009CC595 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = /usr/share/man/man1/;
+			dstSubfolderSpec = 0;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 1;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		2230249E1B1700A1002DA161 /* mesh.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = mesh.c; path = ../src/nrfmesh/mesh/mesh.c; sourceTree = "<group>"; };
+		2230249F1B1700A1002DA161 /* mesh.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = mesh.h; path = ../src/nrfmesh/mesh/mesh.h; sourceTree = "<group>"; };
+		223024A01B1700A1002DA161 /* meshsystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = meshsystem.h; path = ../src/nrfmesh/mesh/meshsystem.h; sourceTree = "<group>"; };
+		22590E5A1A6B9E55008A563B /* Helpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
+		22590E5C1A6B9F34008A563B /* Mesh2NodeUnitTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Mesh2NodeUnitTests.swift; sourceTree = "<group>"; };
+		227AA9191A5F9D13009CC595 /* Mesh */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Mesh; sourceTree = BUILT_PRODUCTS_DIR; };
+		227AA92E1A60B1C1009CC595 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = main.c; path = Simulator/main.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
+		22912A051A64A56E0068A7B3 /* simsystem.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = simsystem.c; path = Simulator/simsystem.c; sourceTree = "<group>"; };
+		22912A071A64A5B80068A7B3 /* sim.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = sim.h; path = Simulator/sim.h; sourceTree = "<group>"; };
+		22912A0C1A6A42160068A7B3 /* MeshUnitTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MeshUnitTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		22912A0F1A6A42160068A7B3 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		22912A101A6A42160068A7B3 /* Mesh16NodeUnitTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Mesh16NodeUnitTests.swift; sourceTree = "<group>"; };
+		22912A171A6A44C20068A7B3 /* MeshUnitTests-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "MeshUnitTests-Bridging-Header.h"; sourceTree = "<group>"; };
+		22912A1F1A6B27BB0068A7B3 /* sim.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = sim.c; path = Simulator/sim.c; sourceTree = "<group>"; };
+		22912A241A6B3C1A0068A7B3 /* Mesh1NodeUnitTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Mesh1NodeUnitTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		227AA9161A5F9D13009CC595 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		22912A091A6A42160068A7B3 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		226096071B16EE9200E85310 /* Mesh */ = {
+			isa = PBXGroup;
+			children = (
+				2230249E1B1700A1002DA161 /* mesh.c */,
+				2230249F1B1700A1002DA161 /* mesh.h */,
+				223024A01B1700A1002DA161 /* meshsystem.h */,
+			);
+			name = Mesh;
+			sourceTree = "<group>";
+		};
+		227AA9101A5F9D13009CC595 = {
+			isa = PBXGroup;
+			children = (
+				226096071B16EE9200E85310 /* Mesh */,
+				227AA92D1A60B1AC009CC595 /* Simulator */,
+				22912A0D1A6A42160068A7B3 /* MeshUnitTests */,
+				227AA91A1A5F9D13009CC595 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		227AA91A1A5F9D13009CC595 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				227AA9191A5F9D13009CC595 /* Mesh */,
+				22912A0C1A6A42160068A7B3 /* MeshUnitTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		227AA92D1A60B1AC009CC595 /* Simulator */ = {
+			isa = PBXGroup;
+			children = (
+				227AA92E1A60B1C1009CC595 /* main.c */,
+				22912A051A64A56E0068A7B3 /* simsystem.c */,
+				22912A071A64A5B80068A7B3 /* sim.h */,
+				22912A1F1A6B27BB0068A7B3 /* sim.c */,
+			);
+			name = Simulator;
+			sourceTree = "<group>";
+		};
+		22912A0D1A6A42160068A7B3 /* MeshUnitTests */ = {
+			isa = PBXGroup;
+			children = (
+				22590E5C1A6B9F34008A563B /* Mesh2NodeUnitTests.swift */,
+				22912A241A6B3C1A0068A7B3 /* Mesh1NodeUnitTests.swift */,
+				22912A101A6A42160068A7B3 /* Mesh16NodeUnitTests.swift */,
+				22912A0E1A6A42160068A7B3 /* Supporting Files */,
+				22912A171A6A44C20068A7B3 /* MeshUnitTests-Bridging-Header.h */,
+			);
+			path = MeshUnitTests;
+			sourceTree = "<group>";
+		};
+		22912A0E1A6A42160068A7B3 /* Supporting Files */ = {
+			isa = PBXGroup;
+			children = (
+				22912A0F1A6A42160068A7B3 /* Info.plist */,
+				22590E5A1A6B9E55008A563B /* Helpers.swift */,
+			);
+			name = "Supporting Files";
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		227AA9181A5F9D13009CC595 /* Mesh */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 227AA9201A5F9D13009CC595 /* Build configuration list for PBXNativeTarget "Mesh" */;
+			buildPhases = (
+				227AA9151A5F9D13009CC595 /* Sources */,
+				227AA9161A5F9D13009CC595 /* Frameworks */,
+				227AA9171A5F9D13009CC595 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Mesh;
+			productName = Mesh;
+			productReference = 227AA9191A5F9D13009CC595 /* Mesh */;
+			productType = "com.apple.product-type.tool";
+		};
+		22912A0B1A6A42160068A7B3 /* MeshUnitTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 22912A121A6A42160068A7B3 /* Build configuration list for PBXNativeTarget "MeshUnitTests" */;
+			buildPhases = (
+				22912A081A6A42160068A7B3 /* Sources */,
+				22912A091A6A42160068A7B3 /* Frameworks */,
+				22912A0A1A6A42160068A7B3 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = MeshUnitTests;
+			productName = MeshUnitTests;
+			productReference = 22912A0C1A6A42160068A7B3 /* MeshUnitTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		227AA9111A5F9D13009CC595 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 0610;
+				ORGANIZATIONNAME = tim;
+				TargetAttributes = {
+					227AA9181A5F9D13009CC595 = {
+						CreatedOnToolsVersion = 6.1.1;
+					};
+					22912A0B1A6A42160068A7B3 = {
+						CreatedOnToolsVersion = 6.1.1;
+					};
+				};
+			};
+			buildConfigurationList = 227AA9141A5F9D13009CC595 /* Build configuration list for PBXProject "Mesh" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = English;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+			);
+			mainGroup = 227AA9101A5F9D13009CC595;
+			productRefGroup = 227AA91A1A5F9D13009CC595 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				227AA9181A5F9D13009CC595 /* Mesh */,
+				22912A0B1A6A42160068A7B3 /* MeshUnitTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		22912A0A1A6A42160068A7B3 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		227AA9151A5F9D13009CC595 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				223024A11B1700A1002DA161 /* mesh.c in Sources */,
+				22912A201A6B27BB0068A7B3 /* sim.c in Sources */,
+				227AA92F1A60B1C1009CC595 /* main.c in Sources */,
+				22912A061A64A56E0068A7B3 /* simsystem.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		22912A081A6A42160068A7B3 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				229031761AE6E0D6005F73D7 /* Mesh1NodeUnitTests.swift in Sources */,
+				229031771AE6E0D8005F73D7 /* Mesh16NodeUnitTests.swift in Sources */,
+				22590E5B1A6B9E55008A563B /* Helpers.swift in Sources */,
+				223024A21B1700C8002DA161 /* mesh.c in Sources */,
+				2264535B1AE5CFDB00EC2513 /* Mesh2NodeUnitTests.swift in Sources */,
+				22912A211A6B27BB0068A7B3 /* sim.c in Sources */,
+				22912A1E1A6A473C0068A7B3 /* simsystem.c in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		227AA91E1A5F9D13009CC595 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+			};
+			name = Debug;
+		};
+		227AA91F1A5F9D13009CC595 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+			};
+			name = Release;
+		};
+		227AA9211A5F9D13009CC595 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Debug;
+		};
+		227AA9221A5F9D13009CC595 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				PRODUCT_NAME = "$(TARGET_NAME)";
+			};
+			name = Release;
+		};
+		22912A131A6A42160068A7B3 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
+					"$(inherited)",
+				);
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = MeshUnitTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "MeshUnitTests/MeshUnitTests-Bridging-Header.h";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		22912A141A6A42160068A7B3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				COMBINE_HIDPI_IMAGES = YES;
+				FRAMEWORK_SEARCH_PATHS = (
+					"$(DEVELOPER_FRAMEWORKS_DIR)",
+					"$(inherited)",
+				);
+				INFOPLIST_FILE = MeshUnitTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks @loader_path/../Frameworks";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_OBJC_BRIDGING_HEADER = "MeshUnitTests/MeshUnitTests-Bridging-Header.h";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		227AA9141A5F9D13009CC595 /* Build configuration list for PBXProject "Mesh" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				227AA91E1A5F9D13009CC595 /* Debug */,
+				227AA91F1A5F9D13009CC595 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		227AA9201A5F9D13009CC595 /* Build configuration list for PBXNativeTarget "Mesh" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				227AA9211A5F9D13009CC595 /* Debug */,
+				227AA9221A5F9D13009CC595 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		22912A121A6A42160068A7B3 /* Build configuration list for PBXNativeTarget "MeshUnitTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				22912A131A6A42160068A7B3 /* Debug */,
+				22912A141A6A42160068A7B3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 227AA9111A5F9D13009CC595 /* Project object */;
+}
