@@ -11,6 +11,7 @@
 #include <ble_advdata.h>
 #include <app_error.h>
 
+#include "nrfmesh/nrfmesh.h"
 #include "advertising.h"
 
 /**@brief Function for initializing the Advertising functionality.
@@ -28,7 +29,7 @@ void advertising_init(void)
     uint8_t data[] =
     {
     	0x02, 0x15,
-    	APP_ADV_UUID,
+    	MESH_UUID,
     	mac.addr[3], mac.addr[2], mac.addr[1], mac.addr[0],
     	0xCA
     };

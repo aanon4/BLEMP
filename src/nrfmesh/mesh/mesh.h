@@ -64,6 +64,13 @@
 #endif
 
 //
+// The UUID used to identify this network.
+//
+#if !defined(MESH_UUID)
+#define MESH_UUID   0x21, 0xAB, 0xBA, 0x78, 0x15, 0x75, 0x4D, 0xBB, 0x9C, 0x8B, 0xCB, 0x68, 0x08, 0xB2, 0x30, 0xED
+#endif
+
+//
 // Limit the number of neighbor nodes to allow space for new nodes to join.
 //
 #define MESH_NEIGHBOR_LIMIT           (MESH_MAX_NEIGHBORS - 4)

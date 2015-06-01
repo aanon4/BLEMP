@@ -142,7 +142,7 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		0x02, BLE_GAP_AD_TYPE_FLAGS, BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE,
 		0x1A, BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA, 0x4C, 0x00,
 		0x02, 0x15,
-		APP_ADV_UUID
+		MESH_UUID
 	};
 
 	uint32_t err_code;
