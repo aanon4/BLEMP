@@ -86,7 +86,7 @@
 #define MESH_NEIGHBOR_FORWARD_LIMIT   (MESH_MAX_RETRIES / 4)
 
 //
-// Nodes perioidically send keepalive messages. If nodes messages aren't seen after 2 sweeps the node
+// Nodes periodically send keepalive messages. If nodes messages aren't seen after 2 sweeps the node
 // will be forgotten (assumed removed or failed).
 //
 #define MESH_KEEPALIVE_TIME           (15 * 60)                     // 15 minutes
