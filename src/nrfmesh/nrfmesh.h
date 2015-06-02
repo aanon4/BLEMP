@@ -10,7 +10,7 @@
 
 #include "mesh/mesh.h"
 
-#define ENABLE_MESH_PIN           1
+#define ENABLE_MESH_PIN           0
 
 #define	RETRY_FIXED			 		      50 // ms
 #define	RETRY_VARIABLE		 		    50 // ms
