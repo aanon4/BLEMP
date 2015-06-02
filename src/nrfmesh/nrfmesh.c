@@ -8,6 +8,7 @@
 #include <nordic_common.h>
 #include <ble.h>
 #include <ble_gatts.h>
+#include <ble_gap.h>
 #include <ble_hci.h>
 #include <app_error.h>
 #include <nrf_soc.h>
@@ -34,15 +35,41 @@ static struct
 	uint16_t	sync_handle;
 	uint16_t	attr_handle;
 	app_timer_id_t timer;
-
+#if ENABLE_MESH_PIN
+	ble_gap_sec_params_t auth;
+  ble_gap_sec_keyset_t keyset;
+  uint8_t     passkey[6];
+  Mesh_NodeId incoming_id;
+#endif
+  uint8_t     rediscover_needed;
 } mesh_state =
 {
 	.in_handle = BLE_CONN_HANDLE_INVALID,
 	.out_handle = BLE_CONN_HANDLE_INVALID,
 	.sync_handle = BLE_CONN_HANDLE_INVALID,
-	.attr_handle = BLE_CONN_HANDLE_INVALID
+	.attr_handle = BLE_CONN_HANDLE_INVALID,
+#if ENABLE_MESH_PIN
+	.auth =
+  {
+      .bond = 0,
+      .mitm = 1,
+      .io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY,
+      .oob = 0,
+      .min_key_size = 7,
+      .max_key_size = 16,
+      .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
+      .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
+  },
+	.keyset =
+	{
+	    .keys_periph = { NULL, NULL, NULL },
+	    .keys_central = { NULL, NULL, NULL }
+	},
+	.passkey = { 0, 0, 0, 0, 0, 0 },
+	.incoming_id = MESH_NODEID_INVALID,
+#endif
+	.rediscover_needed = 0,
 };
-static uint8_t rediscover_needed;
 Mesh_Node mesh_node;
 
 void nrfmesh_init(void)
@@ -54,8 +81,13 @@ void nrfmesh_init(void)
 	// Add Mesh service
 	static const ble_gatts_attr_md_t metadata =
 	{
+#if ENABLE_MESH_PIN
+	  .read_perm = { 1, 3 },
+	  .write_perm = { 1, 3 },
+#else
 		.read_perm = { 1, 1 },
 		.write_perm = { 1, 1 },
+#endif
 		.rd_auth = 1,
 		.wr_auth = 1,
 		.vlen = 1,
@@ -111,11 +143,35 @@ void nrfmesh_init(void)
   meshkeepalive_init();
 }
 
+Mesh_Status nrfmesh_set_passkey(uint8_t* key)
+{
+#if ENABLE_MESH_PIN
+  uint32_t err_code;
+
+  memcpy(mesh_state.passkey, key, sizeof(mesh_state.passkey));
+  const ble_opt_t opt =
+  {
+      .gap_opt =
+      {
+          .passkey =
+          {
+              .p_passkey = mesh_state.passkey
+          }
+      }
+  };
+  err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &opt);
+  APP_ERROR_CHECK(err_code);
+  return MESH_OK;
+#else
+  return MESH_BADSTATE;
+#endif
+}
+
 void nrfmesh_timer_handler(void)
 {
   meshkeepalive_timer_handler();
 
-	if (rediscover_needed)
+	if (mesh_state.rediscover_needed)
 	{
 		static const ble_gap_scan_params_t scan =
 		{
@@ -126,7 +182,7 @@ void nrfmesh_timer_handler(void)
 		if (mesh_node.state == MESH_STATE_IDLE && sd_ble_gap_scan_start(&scan) == NRF_SUCCESS)
     {
       STAT_RECORD_INC(scan_start_count);
-      rediscover_needed = 0;
+      mesh_state.rediscover_needed = 0;
     }
     else
     {
@@ -192,17 +248,32 @@ void nrfmesh_ble_event(ble_evt_t* event)
 			STAT_TIMER_START(connections_in_total_time_ms);
 			err_code = app_timer_stop(mesh_state.timer);
 			APP_ERROR_CHECK(err_code);
+#if ENABLE_MESH_PIN
+			mesh_state.incoming_id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 1);
+#else
 			Mesh_Process(&mesh_node, MESH_EVENT_INCOMINGCONNECTION, Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 1), 0);
+	    err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
+	    APP_ERROR_CHECK(err_code);
+#endif
 		}
 		else
 		{
 			mesh_state.out_handle = event->evt.gap_evt.conn_handle;
 			if (mesh_node.sync.neighbor->handle)
 			{
+			  connected:;
 				mesh_state.attr_handle = mesh_node.sync.neighbor->handle;
 				STAT_RECORD_INC(connections_out_success_count);
 				STAT_TIMER_END(connecting_out_total_time_ms);
+#if ENABLE_MESH_PIN
+	      mesh_state.auth.io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY;
+				err_code = sd_ble_gap_authenticate(mesh_state.out_handle, &mesh_state.auth);
+				APP_ERROR_CHECK(err_code);
+#else
 				Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
+		    err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
+		    APP_ERROR_CHECK(err_code);
+#endif
 			}
 			else
 			{
@@ -217,8 +288,6 @@ void nrfmesh_ble_event(ble_evt_t* event)
 				APP_ERROR_CHECK(err_code);
 			}
 		}
-		err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
-		APP_ERROR_CHECK(err_code);
 		break;
 
 	case BLE_GATTC_EVT_CHAR_DISC_RSP:
@@ -232,11 +301,7 @@ void nrfmesh_ble_event(ble_evt_t* event)
 					if (chr->uuid.type == UUIDS_BASE_TYPE && chr->uuid.uuid == MESH_SYNC_UUID)
 					{
 						mesh_node.sync.neighbor->handle = chr->handle_value;
-						mesh_state.attr_handle = mesh_node.sync.neighbor->handle;
-						STAT_RECORD_INC(connections_out_success_count);
-						STAT_TIMER_END(discover_total_time_ms);
-						Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
-						goto disc_done;
+						goto connected;
 					}
 				}
 				ble_gattc_handle_range_t discover =
@@ -254,9 +319,64 @@ void nrfmesh_ble_event(ble_evt_t* event)
 				STAT_TIMER_END(discover_total_time_ms);
 				Mesh_Process(&mesh_node, MESH_EVENT_INVALIDNODE, 0, 0);
 			}
-			disc_done:;
 		}
 		break;
+
+#if ENABLE_MESH_PIN
+	case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+	  if (event->evt.gap_evt.conn_handle == mesh_state.out_handle)
+	  {
+	    err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, NULL, &mesh_state.keyset);
+	    APP_ERROR_CHECK(err_code);
+	  }
+	  else if (event->evt.gap_evt.conn_handle == mesh_state.in_handle)
+    {
+	    mesh_state.auth.io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY;
+      err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &mesh_state.auth, &mesh_state.keyset);
+      APP_ERROR_CHECK(err_code);
+    }
+	  break;
+
+	case BLE_GAP_EVT_AUTH_KEY_REQUEST:
+	  if (event->evt.gap_evt.conn_handle == mesh_state.out_handle)
+    {
+	    err_code = sd_ble_gap_auth_key_reply(event->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, mesh_state.passkey);
+	    APP_ERROR_CHECK(err_code);
+    }
+	  break;
+
+	case BLE_GAP_EVT_CONN_SEC_UPDATE:
+	  break;
+
+	case BLE_GAP_EVT_AUTH_STATUS:
+	  if (event->evt.gap_evt.conn_handle == mesh_state.out_handle)
+	  {
+	    if (event->evt.gap_evt.params.auth_status.auth_status == BLE_GAP_SEC_STATUS_SUCCESS)
+	    {
+	      Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
+	      err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
+	      APP_ERROR_CHECK(err_code);
+	    }
+	    else
+	    {
+	      Mesh_Process(&mesh_node, MESH_EVENT_CONNECTIONFAILED, 0, 0);
+	    }
+	  }
+	  else if (event->evt.gap_evt.conn_handle == mesh_state.in_handle)
+	  {
+	    if (event->evt.gap_evt.params.auth_status.auth_status == BLE_GAP_SEC_STATUS_SUCCESS)
+	    {
+	      Mesh_Process(&mesh_node, MESH_EVENT_INCOMINGCONNECTION, mesh_state.incoming_id, 0);
+	      err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
+	      APP_ERROR_CHECK(err_code);
+	    }
+	    else
+	    {
+	      Mesh_System_Disconnect(&mesh_node);
+	    }
+	  }
+	  break;
+#endif
 
 	case BLE_GAP_EVT_DISCONNECTED:;
 		STAT_RECORD_INC(disconnect_count);
@@ -492,7 +612,7 @@ void Mesh_System_Retry(Mesh_Node* node, unsigned short retrycount)
 
 void Mesh_System_ScheduleDiscovery(Mesh_Node* node)
 {
-  rediscover_needed = 1;
+  mesh_state.rediscover_needed = 1;
 }
 
 Mesh_Tick Mesh_System_Tick(void)

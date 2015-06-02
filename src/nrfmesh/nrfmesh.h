@@ -10,6 +10,8 @@
 
 #include "mesh/mesh.h"
 
+#define ENABLE_MESH_PIN           1
+
 #define	RETRY_FIXED			 		      50 // ms
 #define	RETRY_VARIABLE		 		    50 // ms
 
@@ -28,5 +30,6 @@ extern Mesh_Node mesh_node;
 extern void nrfmesh_init(void);
 extern void nrfmesh_ble_event(ble_evt_t* event);
 extern void nrfmesh_timer_handler(void);
+extern Mesh_Status nrfmesh_set_passkey(uint8_t* key);
 
 #endif /* NRF51MESH_H_ */

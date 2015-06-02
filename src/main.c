@@ -129,6 +129,7 @@ int main(void)
 
 	// Mesh setup
   nrfmesh_init();
+  nrfmesh_set_passkey("123456"); // Default key
 
   // Sensor setup
 	temperature_init();
