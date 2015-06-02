@@ -14,6 +14,6 @@
 #define APP_TIMER_MAX_TIMERS            5 // Maximum number of simultaneously created timers.
 #define APP_TIMER_OP_QUEUE_SIZE         4 // Size of timer operation queues.
 
-#define	MS_TO_TICKS(MS)					(APP_TIMER_TICKS(MS, APP_TIMER_PRESCALER))
+#define	MS_TO_TICKS(MS)					      (APP_TIMER_TICKS(MS, APP_TIMER_PRESCALER))
 
 #endif /* TIMER_H_ */
