@@ -19,8 +19,8 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 
   switch (node->state)
   {
-    case MESH_STATE_IDLE:
-      switch (event)
+  case MESH_STATE_IDLE:
+    switch (event)
     {
       case MESH_EVENT_NEIGHBOR_DISCOVER:
       {
@@ -126,10 +126,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         break;
     }
-      break;
+    break;
 
-    case MESH_STATE_SWITCHTOMASTER:
-      switch (event)
+  case MESH_STATE_SWITCHTOMASTER:
+    switch (event)
     {
       case MESH_EVENT_INMASTERMODE:
         // In master mode - find someone to sync with
@@ -170,10 +170,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SYNCMASTERDISCONNECTING:
-      switch (event)
+  case MESH_STATE_SYNCMASTERDISCONNECTING:
+    switch (event)
     {
       case MESH_EVENT_DISCONNECTED:
         goto lookforsync;
@@ -184,10 +184,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SWITCHTOPERIPHERAL:
-      switch (event)
+  case MESH_STATE_SWITCHTOPERIPHERAL:
+    switch (event)
     {
       case MESH_EVENT_INPERIPHERALMODE:
       {
@@ -245,10 +245,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SYNCMASTERCONNECTING:
-      switch (event)
+  case MESH_STATE_SYNCMASTERCONNECTING:
+    switch (event)
     {
       case MESH_EVENT_CONNECTIONFAILED:
       case MESH_EVENT_DISCONNECTED:
@@ -283,10 +283,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SYNCMASTERREADING:
-      switch (event)
+  case MESH_STATE_SYNCMASTERREADING:
+    switch (event)
     {
       case MESH_EVENT_READ:
         goto reading;
@@ -304,10 +304,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SYNCPERIPHERALREADING:
-      switch (event)
+  case MESH_STATE_SYNCPERIPHERALREADING:
+    switch (event)
     {
       case MESH_EVENT_WRITE:
       {
@@ -368,7 +368,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                     {
                       // A new key, so we create it
                       status = Mesh_SetValueInternal(node, node->sync.id, key, value, length, 1, version, node->sync.changebits);
-#if ENABLE_MESH_TRIMMING
+  #if ENABLE_MESH_TRIMMING
                       // We have no space for this new value. If Mesh Trimming is enabled, we are allowed to throw away
                       // old values which are not specifically for this node. This decreases efficiency if that UKV is
                       // retransmitted, but that will be rare (if ever). It also means nodes no longer hold the entire mesh
@@ -381,7 +381,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                           status = Mesh_SetValueInternal(node, node->sync.id, key, value, length, 1, version, node->sync.changebits);
                         }
                       }
-#endif
+  #endif
                       Mesh_System_ValueChanged(node, node->sync.id, key, value, length);
                     }
                     else if (status == MESH_CHANGE)
@@ -475,10 +475,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SYNCMASTERWRITING:
-      switch (event)
+  case MESH_STATE_SYNCMASTERWRITING:
+    switch (event)
     {
       case MESH_EVENT_WROTE:
         // Update RSSI
@@ -494,10 +494,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SYNCPERIPHERALWRITING:
-      switch (event)
+  case MESH_STATE_SYNCPERIPHERALWRITING:
+    switch (event)
     {
       case MESH_EVENT_READING:
       {
@@ -620,11 +620,11 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    case MESH_STATE_SYNCPERIPHERALDONE:
-    case MESH_STATE_SYNCMASTERDONE:
-      switch (event)
+  case MESH_STATE_SYNCPERIPHERALDONE:
+  case MESH_STATE_SYNCMASTERDONE:
+    switch (event)
     {
       case MESH_EVENT_WROTE:
       case MESH_EVENT_DISCONNECTED:
@@ -708,12 +708,12 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       default:
         goto badstate;
     }
-      break;
+    break;
 
-    default:
-    badstate:;
-      status = MESH_BADSTATE;
-      break;
+  default:
+  badstate:;
+    status = MESH_BADSTATE;
+    break;
   }
 
   return status;
