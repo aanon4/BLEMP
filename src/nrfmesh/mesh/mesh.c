@@ -119,6 +119,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         }
         break;
 
+      case MESH_EVENT_DISCONNECTED:
+        Mesh_System_PeripheralDone(node);
+        break;
+
       default:
         break;
     }
