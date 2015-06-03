@@ -5,12 +5,13 @@
  *      Author: tim
  */
 
+#include <string.h>
+
 #include <nordic_common.h>
 #include <ble.h>
 #include <nrf.h>
 #include <ble_gap.h>
 #include <app_error.h>
-#include <device_manager.h>
 #include <app_util.h>
 
 #include "gap.h"

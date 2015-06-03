@@ -70,16 +70,6 @@
 			<locationURI>PARENT-2-PROJECT_LOC/nrf51_sdk/components/ble/common/ble_srv_common.c</locationURI>
 		</link>
 		<link>
-			<name>src/nrf51_sdk/device_manager_central.c</name>
-			<type>1</type>
-			<locationURI>PARENT-2-PROJECT_LOC/nrf51_sdk/components/ble/device_manager/device_manager_central.c</locationURI>
-		</link>
-		<link>
-			<name>src/nrf51_sdk/device_manager_peripheral.c</name>
-			<type>1</type>
-			<locationURI>PARENT-2-PROJECT_LOC/nrf51_sdk/components/ble/device_manager/device_manager_peripheral.c</locationURI>
-		</link>
-		<link>
 			<name>src/nrf51_sdk/pstorage.c</name>
 			<type>1</type>
 			<locationURI>PARENT-2-PROJECT_LOC/nrf51_sdk/components/drivers_nrf/pstorage/pstorage.c</locationURI>

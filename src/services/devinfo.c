@@ -7,7 +7,6 @@
 
 #include <ble_dis.h>
 #include <app_error.h>
-#include <device_manager.h>
 
 #include "devinfo.h"
 
