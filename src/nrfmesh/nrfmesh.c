@@ -22,6 +22,7 @@
 
 #include "uuids.h"
 #include "nrfmesh.h"
+#include "secure.h"
 #include "keepalive.h"
 #include "statistics.h"
 
@@ -35,12 +36,6 @@ static struct
 	uint16_t	sync_handle;
 	uint16_t	attr_handle;
 	app_timer_id_t timer;
-#if ENABLE_MESH_PIN
-	ble_gap_sec_params_t auth;
-  ble_gap_sec_keyset_t keyset;
-  uint8_t     passkey[6];
-  Mesh_NodeId incoming_id;
-#endif
   uint8_t     rediscover_needed;
 } mesh_state =
 {
@@ -48,27 +43,6 @@ static struct
 	.out_handle = BLE_CONN_HANDLE_INVALID,
 	.sync_handle = BLE_CONN_HANDLE_INVALID,
 	.attr_handle = BLE_CONN_HANDLE_INVALID,
-#if ENABLE_MESH_PIN
-	.auth =
-  {
-      .bond = 0,
-      .mitm = 1,
-      .io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY,
-      .oob = 0,
-      .min_key_size = 7,
-      .max_key_size = 16,
-      .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
-      .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
-  },
-	.keyset =
-	{
-	    .keys_periph = { NULL, NULL, NULL },
-	    .keys_central = { NULL, NULL, NULL }
-	},
-	.passkey = { 0, 0, 0, 0, 0, 0 },
-	.incoming_id = MESH_NODEID_INVALID,
-#endif
-	.rediscover_needed = 0,
 };
 Mesh_Node mesh_node;
 
@@ -81,13 +55,8 @@ void nrfmesh_init(void)
 	// Add Mesh service
 	static const ble_gatts_attr_md_t metadata =
 	{
-#if ENABLE_MESH_PIN
-	  .read_perm = { 1, 3 },
-	  .write_perm = { 1, 3 },
-#else
 		.read_perm = { 1, 1 },
 		.write_perm = { 1, 1 },
-#endif
 		.rd_auth = 1,
 		.wr_auth = 1,
 		.vlen = 1,
@@ -143,30 +112,6 @@ void nrfmesh_init(void)
   meshkeepalive_init();
 }
 
-Mesh_Status nrfmesh_set_passkey(uint8_t* key)
-{
-#if ENABLE_MESH_PIN
-  uint32_t err_code;
-
-  memcpy(mesh_state.passkey, key, sizeof(mesh_state.passkey));
-  const ble_opt_t opt =
-  {
-      .gap_opt =
-      {
-          .passkey =
-          {
-              .p_passkey = mesh_state.passkey
-          }
-      }
-  };
-  err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &opt);
-  APP_ERROR_CHECK(err_code);
-  return MESH_OK;
-#else
-  return MESH_BADSTATE;
-#endif
-}
-
 void nrfmesh_timer_handler(void)
 {
   meshkeepalive_timer_handler();
@@ -203,10 +148,12 @@ void nrfmesh_ble_event(ble_evt_t* event)
 
 	uint32_t err_code;
 
+	secure_ble_event(event);
+
 	switch (event->header.evt_id)
 	{
 	case BLE_GAP_EVT_ADV_REPORT:
-		if (event->evt.gap_evt.params.adv_report.dlen >= sizeof(advert) && Mesh_System_memcmp(advert, event->evt.gap_evt.params.adv_report.data, sizeof(advert)) == 0)
+		if (event->evt.gap_evt.params.adv_report.peer_addr.addr_type == BLE_GAP_ADDR_TYPE_PUBLIC && event->evt.gap_evt.params.adv_report.dlen >= sizeof(advert) && Mesh_System_memcmp(advert, event->evt.gap_evt.params.adv_report.data, sizeof(advert)) == 0)
 		{
 			uint8_t id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.adv_report.peer_addr.addr, 1);
 			if (id != MESH_NODEID_SELF)
@@ -248,13 +195,9 @@ void nrfmesh_ble_event(ble_evt_t* event)
 			STAT_TIMER_START(connections_in_total_time_ms);
 			err_code = app_timer_stop(mesh_state.timer);
 			APP_ERROR_CHECK(err_code);
-#if ENABLE_MESH_PIN
-			mesh_state.incoming_id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 1);
-#else
 			Mesh_Process(&mesh_node, MESH_EVENT_INCOMINGCONNECTION, Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 1), 0);
 	    err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
 	    APP_ERROR_CHECK(err_code);
-#endif
 		}
 		else
 		{
@@ -265,15 +208,12 @@ void nrfmesh_ble_event(ble_evt_t* event)
 				mesh_state.attr_handle = mesh_node.sync.neighbor->handle;
 				STAT_RECORD_INC(connections_out_success_count);
 				STAT_TIMER_END(connecting_out_total_time_ms);
-#if ENABLE_MESH_PIN
-	      mesh_state.auth.io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY;
-				err_code = sd_ble_gap_authenticate(mesh_state.out_handle, &mesh_state.auth);
-				APP_ERROR_CHECK(err_code);
-#else
-				Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
+				if (!secure_authenticate(mesh_state.out_handle))
+				{
+				  Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
+				}
 		    err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
 		    APP_ERROR_CHECK(err_code);
-#endif
 			}
 			else
 			{
@@ -322,62 +262,6 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		}
 		break;
 
-#if ENABLE_MESH_PIN
-	case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
-	  if (event->evt.gap_evt.conn_handle == mesh_state.out_handle)
-	  {
-	    err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, NULL, &mesh_state.keyset);
-	    APP_ERROR_CHECK(err_code);
-	  }
-	  else if (event->evt.gap_evt.conn_handle == mesh_state.in_handle)
-    {
-	    mesh_state.auth.io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY;
-      err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &mesh_state.auth, &mesh_state.keyset);
-      APP_ERROR_CHECK(err_code);
-    }
-	  break;
-
-	case BLE_GAP_EVT_AUTH_KEY_REQUEST:
-	  if (event->evt.gap_evt.conn_handle == mesh_state.out_handle)
-    {
-	    err_code = sd_ble_gap_auth_key_reply(event->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_PASSKEY, mesh_state.passkey);
-	    APP_ERROR_CHECK(err_code);
-    }
-	  break;
-
-	case BLE_GAP_EVT_CONN_SEC_UPDATE:
-	  break;
-
-	case BLE_GAP_EVT_AUTH_STATUS:
-	  if (event->evt.gap_evt.conn_handle == mesh_state.out_handle)
-	  {
-	    if (event->evt.gap_evt.params.auth_status.auth_status == BLE_GAP_SEC_STATUS_SUCCESS)
-	    {
-	      Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
-	      err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
-	      APP_ERROR_CHECK(err_code);
-	    }
-	    else
-	    {
-	      Mesh_Process(&mesh_node, MESH_EVENT_CONNECTIONFAILED, 0, 0);
-	    }
-	  }
-	  else if (event->evt.gap_evt.conn_handle == mesh_state.in_handle)
-	  {
-	    if (event->evt.gap_evt.params.auth_status.auth_status == BLE_GAP_SEC_STATUS_SUCCESS)
-	    {
-	      Mesh_Process(&mesh_node, MESH_EVENT_INCOMINGCONNECTION, mesh_state.incoming_id, 0);
-	      err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
-	      APP_ERROR_CHECK(err_code);
-	    }
-	    else
-	    {
-	      Mesh_System_Disconnect(&mesh_node);
-	    }
-	  }
-	  break;
-#endif
-
 	case BLE_GAP_EVT_DISCONNECTED:;
 		STAT_RECORD_INC(disconnect_count);
 		STAT_TIMER_END(connections_in_total_time_ms);
@@ -388,52 +272,65 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		Mesh_Process(&mesh_node, MESH_EVENT_DISCONNECTED, 0, 0);
 		break;
 
+	case BLE_GAP_EVT_AUTH_STATUS:
+	    if (event->evt.gap_evt.conn_handle == mesh_state.out_handle && event->evt.gap_evt.params.auth_status.auth_status == BLE_GAP_SEC_STATUS_SUCCESS)
+      {
+        Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
+      }
+	    break;
+
 	case BLE_GATTS_EVT_RW_AUTHORIZE_REQUEST:
 		switch (event->evt.gatts_evt.params.authorize_request.type)
 		{
 		case BLE_GATTS_AUTHORIZE_TYPE_WRITE:
 			if (event->evt.gatts_evt.params.authorize_request.request.write.handle == mesh_state.sync_handle)
 			{
-				int8_t rssi;
-				err_code = sd_ble_gap_rssi_get(mesh_state.in_handle, &rssi);
-				APP_ERROR_CHECK(err_code);
-				mesh_node.sync.bufferlen = MIN(sizeof(mesh_node.sync.buffer), event->evt.gatts_evt.params.authorize_request.request.write.len);
-				Mesh_System_memmove(mesh_node.sync.buffer, event->evt.gatts_evt.params.authorize_request.request.write.data, mesh_node.sync.bufferlen);
-				Mesh_Process(&mesh_node, MESH_EVENT_WRITE, 0, rssi);
-				static const ble_gatts_rw_authorize_reply_params_t reply =
-				{
-					.type = BLE_GATTS_AUTHORIZE_TYPE_WRITE,
-					.params.write.gatt_status = BLE_GATT_STATUS_SUCCESS
-				};
-				STAT_RECORD_INC(write_in_count);
-				err_code = sd_ble_gatts_rw_authorize_reply(mesh_state.in_handle, &reply);
-				APP_ERROR_CHECK(err_code);
+		    if (secure_check_authorization(event))
+		    {
+          int8_t rssi;
+          err_code = sd_ble_gap_rssi_get(mesh_state.in_handle, &rssi);
+          APP_ERROR_CHECK(err_code);
+          mesh_node.sync.bufferlen = MIN(sizeof(mesh_node.sync.buffer), event->evt.gatts_evt.params.authorize_request.request.write.len);
+          Mesh_System_memmove(mesh_node.sync.buffer, event->evt.gatts_evt.params.authorize_request.request.write.data, mesh_node.sync.bufferlen);
+          Mesh_Process(&mesh_node, MESH_EVENT_WRITE, 0, rssi);
+          static const ble_gatts_rw_authorize_reply_params_t reply =
+          {
+            .type = BLE_GATTS_AUTHORIZE_TYPE_WRITE,
+            .params.write.gatt_status = BLE_GATT_STATUS_SUCCESS
+          };
+          STAT_RECORD_INC(write_in_count);
+          err_code = sd_ble_gatts_rw_authorize_reply(mesh_state.in_handle, &reply);
+          APP_ERROR_CHECK(err_code);
+		    }
 			}
 			break;
 
 		case BLE_GATTS_AUTHORIZE_TYPE_READ:
 			if (event->evt.gatts_evt.params.authorize_request.request.read.handle == mesh_state.sync_handle)
 			{
-				int8_t rssi;
-				err_code = sd_ble_gap_rssi_get(mesh_state.in_handle, &rssi);
-				APP_ERROR_CHECK(err_code);
-				mesh_node.sync.bufferlen = 0;
-				Mesh_Process(&mesh_node, MESH_EVENT_READING, 0, rssi);
-				ble_gatts_rw_authorize_reply_params_t reply =
-				{
-					.type = BLE_GATTS_AUTHORIZE_TYPE_READ,
-					.params.read =
-					{
-						.gatt_status = BLE_GATT_STATUS_SUCCESS,
-						.update = 1,
-						.offset = 0,
-						.len = mesh_node.sync.bufferlen,
-						.p_data = mesh_node.sync.buffer
-					}
-				};
-				STAT_RECORD_INC(read_in_count);
-				err_code = sd_ble_gatts_rw_authorize_reply(mesh_state.in_handle, &reply);
-				APP_ERROR_CHECK(err_code);
+			  if (secure_check_authorization(event))
+			  {
+          int8_t rssi;
+          err_code = sd_ble_gap_rssi_get(mesh_state.in_handle, &rssi);
+          APP_ERROR_CHECK(err_code);
+          mesh_node.sync.bufferlen = 0;
+          Mesh_Process(&mesh_node, MESH_EVENT_READING, 0, rssi);
+          ble_gatts_rw_authorize_reply_params_t reply =
+          {
+            .type = BLE_GATTS_AUTHORIZE_TYPE_READ,
+            .params.read =
+            {
+              .gatt_status = BLE_GATT_STATUS_SUCCESS,
+              .update = 1,
+              .offset = 0,
+              .len = mesh_node.sync.bufferlen,
+              .p_data = mesh_node.sync.buffer
+            }
+          };
+          STAT_RECORD_INC(read_in_count);
+          err_code = sd_ble_gatts_rw_authorize_reply(mesh_state.in_handle, &reply);
+          APP_ERROR_CHECK(err_code);
+			  }
 			}
 			break;
 
@@ -485,6 +382,9 @@ void nrfmesh_ble_event(ble_evt_t* event)
 			break;
 		}
 		break;
+
+	case BLE_GAP_EVT_RSSI_CHANGED:
+		 break;
 
 	default:
 		break;
@@ -551,7 +451,7 @@ void Mesh_System_Connect(Mesh_Node* node)
 	};
 	ble_gap_addr_t addr =
 	{
-		.addr_type = BLE_GAP_ADDR_TYPE_PUBLIC
+	  .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC
 	};
 	Mesh_System_memmove(&addr.addr, &mesh_node.ids[mesh_node.sync.neighbor->id].address, sizeof(Mesh_NodeAddress));
 	STAT_RECORD_INC(connections_out_count);
