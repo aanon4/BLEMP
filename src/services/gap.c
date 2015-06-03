@@ -27,6 +27,7 @@ void gap_params_init(void)
     ble_gap_addr_t mac;
     err_code = sd_ble_gap_address_get(&mac);
     APP_ERROR_CHECK(err_code);
+
     mac.addr_type = BLE_GAP_ADDR_TYPE_PUBLIC;
     err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &mac);
     APP_ERROR_CHECK(err_code);
@@ -42,10 +43,10 @@ void gap_params_init(void)
 
     static const ble_gap_conn_params_t gap_conn_params =
     {
-		.min_conn_interval = MIN_CONN_INTERVAL,
-		.max_conn_interval = MAX_CONN_INTERVAL,
-		.slave_latency     = SLAVE_LATENCY,
-		.conn_sup_timeout  = CONN_SUP_TIMEOUT
+      .min_conn_interval = MIN_CONN_INTERVAL,
+      .max_conn_interval = MAX_CONN_INTERVAL,
+      .slave_latency     = SLAVE_LATENCY,
+      .conn_sup_timeout  = CONN_SUP_TIMEOUT
     };
 
     err_code = sd_ble_gap_ppcp_set(&gap_conn_params);
