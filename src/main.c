@@ -23,6 +23,7 @@
 
 #include "nrfmesh/uuids.h"
 #include "nrfmesh/nrfmesh.h"
+#include "nrfmesh/secure.h"
 #include "nrfmesh/statistics.h"
 #include "nrfmesh/keepalive.h"
 
@@ -78,7 +79,7 @@ static void ble_evt_dispatch(ble_evt_t* p_ble_evt)
  */
 static void sys_evt_dispatch(uint32_t sys_evt)
 {
-    pstorage_sys_event_handler(sys_evt);
+  pstorage_sys_event_handler(sys_evt);
 }
 
 void Mesh_System_ValueChanged(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
@@ -129,7 +130,7 @@ int main(void)
 
 	// Mesh setup
   nrfmesh_init();
-  nrfmesh_set_passkey("123456"); // Default key
+  secure_set_keys("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default OOB key
 
   // Sensor setup
 	temperature_init();
