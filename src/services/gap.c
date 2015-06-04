@@ -29,10 +29,6 @@ void gap_params_init(void)
     err_code = sd_ble_gap_address_get(&mac);
     APP_ERROR_CHECK(err_code);
 
-    mac.addr_type = BLE_GAP_ADDR_TYPE_PUBLIC;
-    err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &mac);
-    APP_ERROR_CHECK(err_code);
-
     static const ble_gap_conn_sec_mode_t sec_mode = { 1, 1 };
     const uint8_t id = mac.addr[0];
     const uint8_t name[] = { PRODUCT_NAME,  (id < 0xA0 ? '0' : 'A' - 10) + (id >> 4),  ((id & 0xF) < 0xA ? '0' : 'A' - 10) + (id & 0xF) };

@@ -153,7 +153,7 @@ void nrfmesh_ble_event(ble_evt_t* event)
 	switch (event->header.evt_id)
 	{
 	case BLE_GAP_EVT_ADV_REPORT:
-		if (event->evt.gap_evt.params.adv_report.peer_addr.addr_type == BLE_GAP_ADDR_TYPE_PUBLIC && event->evt.gap_evt.params.adv_report.dlen >= sizeof(advert) && Mesh_System_memcmp(advert, event->evt.gap_evt.params.adv_report.data, sizeof(advert)) == 0)
+		if (event->evt.gap_evt.params.adv_report.peer_addr.addr_type == BLE_GAP_ADDR_TYPE_RANDOM_STATIC && event->evt.gap_evt.params.adv_report.dlen >= sizeof(advert) && Mesh_System_memcmp(advert, event->evt.gap_evt.params.adv_report.data, sizeof(advert)) == 0)
 		{
 			uint8_t id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.adv_report.peer_addr.addr, 1);
 			if (id != MESH_NODEID_SELF)
@@ -451,7 +451,7 @@ void Mesh_System_Connect(Mesh_Node* node)
 	};
 	ble_gap_addr_t addr =
 	{
-	  .addr_type = BLE_GAP_ADDR_TYPE_PUBLIC
+	  .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC
 	};
 	Mesh_System_memmove(&addr.addr, &mesh_node.ids[mesh_node.sync.neighbor->id].address, sizeof(Mesh_NodeAddress));
 	STAT_RECORD_INC(connections_out_count);
