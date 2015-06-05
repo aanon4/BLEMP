@@ -38,7 +38,6 @@ void oneminutetimer_init(void)
 {
 	uint32_t err_code;
 
-	// Setup timer to read temperature every so often
 	err_code = app_timer_create(&oneminutetimer, APP_TIMER_MODE_REPEATED, handler_irq);
 	APP_ERROR_CHECK(err_code);
 	err_code = app_timer_start(oneminutetimer, MS_TO_TICKS(ONEMINUTE_TIMER_MS), NULL);
