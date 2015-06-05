@@ -64,9 +64,9 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         node->keepalive++;
         if (node->keepalive >= MESH_KEEPALIVE_SWEEP_TIME / MESH_KEEPALIVE_TIME)
         {
-          // Forget nodes we've not heard from in a long time
+          // Forget nodes we've not heard from in a long time (skip SELF and GLOBAL)
           node->keepalive = 0;
-          for (Mesh_NodeId id = 1; id < MESH_MAX_NODES; id++)
+          for (Mesh_NodeId id = 2; id < MESH_MAX_NODES; id++)
           {
             if (!node->ids[id].flag.ping)
             {
@@ -1216,9 +1216,9 @@ Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space)
   Mesh_UKV* ukv = node->values.values + Mesh_System_RandomNumber(count);
   while (count--)
   {
-    // Only consider UKVs which aren't local, have no pending changes, and are big enough
+    // Only consider UKVs which aren't SELF or GLOBAL, have no pending changes, and are big enough
     Mesh_NodeId nid = ukv->id;
-    if (nid != MESH_NODEID_SELF && ukv->changebits == 0 && ukv->length >= space)
+    if (nid != MESH_NODEID_SELF && nid != MESH_NODEID_GLOBAL && ukv->changebits == 0 && ukv->length >= space)
     {
       // Keep track of the oldest that matches our critera
       if (selected == NULL)
@@ -1274,11 +1274,17 @@ Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space)
 //
 Mesh_Status Mesh_NodeReset(Mesh_Node* node, Mesh_NodeAddress* address)
 {
+  static const Mesh_NodeAddress globalAddress =
+  {
+    .address = { 0, 0, 0, 0, 0, 0 }
+  };
   Mesh_System_memset(node, 0, sizeof(Mesh_Node));
   node->state = MESH_STATE_IDLE;
   node->sync.priority = MESH_NODEID_INVALID;
   Mesh_InternNodeId(node, address, 1);
   node->ids[MESH_NODEID_SELF].flag.ukv = 1; // Force SELF it always be in use
+  Mesh_InternNodeId(node, (Mesh_NodeAddress*)&globalAddress, 1);
+  node->ids[MESH_NODEID_GLOBAL].flag.ukv = 1; // Force GLOBAL always to be in use
   return MESH_OK;
 }
 
