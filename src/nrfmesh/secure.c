@@ -14,20 +14,52 @@
 #include <ble_hci.h>
 #include <app_error.h>
 
+#include "services/timer.h"
+
+#include "nrfmesh.h"
+#include "secure.h"
+
 static struct
 {
-  ble_gap_sec_params_t  auth;
+  struct
+  {
+    ble_gap_enc_key_t enc;
+    ble_gap_id_key_t  id;
+  } p;
+  struct
+  {
+    ble_gap_enc_key_t enc;
+    ble_gap_id_key_t  id;
+  } c;
+} secure_keys;
+
+static struct
+{
+  ble_gap_sec_params_t  periph_auth;
+  ble_gap_sec_params_t  mesh_auth;
   ble_gap_sec_keyset_t  keyset;
   uint8_t               role;
   uint8_t               oob[16];
-  uint8_t               using_oob;
+  app_timer_id_t        timer;
+  uint8_t               pairing;
 } secure_state =
 {
-    .auth =
+    .periph_auth =
+    {
+        .bond = 1,
+        .mitm = 1,
+        .io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY,
+        .oob = 1,
+        .min_key_size = 16,
+        .max_key_size = 16,
+        .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
+        .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
+    },
+    .mesh_auth =
     {
         .bond = 0,
         .mitm = 1,
-        .io_caps = BLE_GAP_IO_CAPS_NONE,
+        .io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY,
         .oob = 1,
         .min_key_size = 16,
         .max_key_size = 16,
@@ -36,23 +68,61 @@ static struct
     },
     .keyset =
     {
-        .keys_periph = { NULL, NULL, NULL },
-        .keys_central = { NULL, NULL, NULL }
-    }
+        .keys_periph = { &secure_keys.p.enc, NULL, NULL },
+        .keys_central = { &secure_keys.c.enc, &secure_keys.c.id, NULL }
+    },
 };
 
-
-void secure_set_keys(uint8_t* oob)
+static void secure_handler_irq(void* dummy)
 {
-  memcpy(secure_state.oob, oob, sizeof(secure_state.oob));
+  secure_state.pairing = 0;
+}
+
+void secure_set_keys(uint8_t* passkey, uint32_t timeout_ms, uint8_t* oob, uint8_t* irk)
+{
+  uint32_t err_code;
+
+  memcpy(secure_state.oob, oob, BLE_GAP_SEC_KEY_LEN);
+  memcpy(secure_keys.p.id.id_info.irk, irk, BLE_GAP_SEC_KEY_LEN);
+
+  // Setup a resolvable private address based on the IRK but which doesn't change over time
+  ble_opt_t opt =
+  {
+      .gap_opt.privacy = { &secure_keys.p.id.id_info, 0 }
+  };
+  err_code = sd_ble_opt_set(BLE_GAP_OPT_PRIVACY, &opt);
+  APP_ERROR_CHECK(err_code);
+
+  secure_keys.p.id.id_addr_info.addr_type = BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE;
+  err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_AUTO, &secure_keys.p.id.id_addr_info);
+  APP_ERROR_CHECK(err_code);
+
+  err_code = sd_ble_gap_address_get(&secure_keys.p.id.id_addr_info);
+  APP_ERROR_CHECK(err_code);
+
+  ble_opt_t kopt =
+  {
+      .gap_opt.passkey.p_passkey = passkey
+  };
+  err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &kopt);
+  APP_ERROR_CHECK(err_code);
+
+  // Enable pairing for a limited period of time after setting up keys
+  if (timeout_ms > 0)
+  {
+    err_code = app_timer_create(&secure_state.timer, APP_TIMER_MODE_SINGLE_SHOT, secure_handler_irq);
+    APP_ERROR_CHECK(err_code);
+    err_code = app_timer_start(secure_state.timer, MS_TO_TICKS(timeout_ms), NULL);
+    APP_ERROR_CHECK(err_code);
+    secure_state.pairing = 1;
+  }
 }
 
 uint8_t secure_authenticate(uint16_t handle)
 {
   uint32_t err_code;
 
-  secure_state.auth.io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY;
-  err_code = sd_ble_gap_authenticate(handle, &secure_state.auth);
+  err_code = sd_ble_gap_authenticate(handle, &secure_state.mesh_auth);
   APP_ERROR_CHECK(err_code);
 
   return 1;
@@ -66,11 +136,10 @@ void secure_ble_event(ble_evt_t* event)
   {
   case BLE_GAP_EVT_CONNECTED:
     secure_state.role = event->evt.gap_evt.params.connected.role;
-    secure_state.using_oob = 0;
     break;
 
-  case BLE_GAP_EVT_DISCONNECTED:
-    secure_state.using_oob = 0;
+  case BLE_GAP_EVT_SEC_INFO_REQUEST:
+    err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, &secure_keys.p.enc.enc_info, NULL, NULL);
     break;
 
   case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
@@ -83,27 +152,28 @@ void secure_ble_event(ble_evt_t* event)
     {
       if (event->evt.gap_evt.params.sec_params_request.peer_params.oob)
       {
-        secure_state.auth.io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY;
+        err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.mesh_auth, &secure_state.keyset);
+        APP_ERROR_CHECK(err_code);
       }
       else
       {
-        secure_state.auth.io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY;
+        if (secure_state.pairing)
+        {
+          err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.periph_auth, &secure_state.keyset);
+          APP_ERROR_CHECK(err_code);
+        }
+        else
+        {
+          err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP, NULL, NULL);
+          APP_ERROR_CHECK(err_code);
+        }
       }
-      err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.auth, &secure_state.keyset);
-      APP_ERROR_CHECK(err_code);
     }
     break;
 
   case BLE_GAP_EVT_AUTH_KEY_REQUEST:
-    secure_state.using_oob = 1;
     err_code = sd_ble_gap_auth_key_reply(event->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_OOB, secure_state.oob);
     APP_ERROR_CHECK(err_code);
-    break;
-
-  case BLE_GAP_EVT_CONN_SEC_UPDATE:
-    break;
-
-  case BLE_GAP_EVT_PASSKEY_DISPLAY:
     break;
 
   case BLE_GAP_EVT_AUTH_STATUS:
@@ -112,6 +182,15 @@ void secure_ble_event(ble_evt_t* event)
       err_code = sd_ble_gap_disconnect(event->evt.gap_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
       APP_ERROR_CHECK(err_code);
     }
+    else
+    {
+      if (event->evt.gap_evt.params.auth_status.bonded)
+      {
+        // NOTE: LTK is 16 byte. The current maximum mesh value can only be 15.
+        Mesh_SetValue(&mesh_node, MESH_NODEID_SELF, MESH_KEY_LTK0, secure_keys.p.enc.enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
+        Mesh_Sync(&mesh_node);
+      }
+    }
     break;
 
   default:
@@ -119,23 +198,10 @@ void secure_ble_event(ble_evt_t* event)
   }
 }
 
-uint8_t secure_check_authorization(ble_evt_t* event)
+void secure_mesh_valuechanged(Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
 {
-  uint32_t err_code;
-
-  if (secure_state.using_oob)
+  if (key == MESH_KEY_LTK0)
   {
-    return 1;
-  }
-  else
-  {
-    ble_gatts_rw_authorize_reply_params_t reply =
-    {
-      .type = event->evt.gatts_evt.params.authorize_request.type,
-      .params.write.gatt_status = (event->evt.gatts_evt.params.authorize_request.type == BLE_GATTS_AUTHORIZE_TYPE_WRITE ? BLE_GATT_STATUS_ATTERR_WRITE_NOT_PERMITTED : BLE_GATT_STATUS_ATTERR_READ_NOT_PERMITTED),
-    };
-    err_code = sd_ble_gatts_rw_authorize_reply(event->evt.common_evt.conn_handle, &reply);
-    APP_ERROR_CHECK(err_code);
-    return 0;
+    memcpy(secure_keys.p.enc.enc_info.ltk, value, BLE_GAP_SEC_KEY_LEN);
   }
 }

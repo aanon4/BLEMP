@@ -84,6 +84,7 @@ static void sys_evt_dispatch(uint32_t sys_evt)
 
 void Mesh_System_ValueChanged(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
 {
+  secure_mesh_valuechanged(id, key, value, length);
 }
 
 /*
@@ -130,7 +131,7 @@ int main(void)
 
 	// Mesh setup
   nrfmesh_init();
-  secure_set_keys("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default OOB key
+  secure_set_keys("123456", (60 * 1000), "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default keys
 
   // Sensor setup
 	temperature_init();
