@@ -8,6 +8,7 @@
 #ifndef NRFMESH_SECURE_H_
 #define NRFMESH_SECURE_H_
 
+extern void secure_init(void);
 extern void secure_set_keys(uint8_t* passkey, uint32_t timeout_ms, uint8_t* oob, uint8_t* irk);
 extern uint8_t secure_authenticate(uint16_t handle);
 extern void secure_ble_event(ble_evt_t* event);

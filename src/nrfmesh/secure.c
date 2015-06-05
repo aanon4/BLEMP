@@ -73,14 +73,25 @@ static struct
     },
 };
 
+
 static void secure_handler_irq(void* dummy)
 {
   secure_state.pairing = 0;
 }
 
+void secure_init(void)
+{
+  uint32_t err_code;
+
+  err_code = app_timer_create(&secure_state.timer, APP_TIMER_MODE_SINGLE_SHOT, secure_handler_irq);
+  APP_ERROR_CHECK(err_code);
+}
+
 void secure_set_keys(uint8_t* passkey, uint32_t timeout_ms, uint8_t* oob, uint8_t* irk)
 {
   uint32_t err_code;
+
+  secure_state.pairing = 0;
 
   memcpy(secure_state.oob, oob, BLE_GAP_SEC_KEY_LEN);
   memcpy(secure_keys.p.id.id_info.irk, irk, BLE_GAP_SEC_KEY_LEN);
@@ -110,8 +121,6 @@ void secure_set_keys(uint8_t* passkey, uint32_t timeout_ms, uint8_t* oob, uint8_
   // Enable pairing for a limited period of time after setting up keys
   if (timeout_ms > 0)
   {
-    err_code = app_timer_create(&secure_state.timer, APP_TIMER_MODE_SINGLE_SHOT, secure_handler_irq);
-    APP_ERROR_CHECK(err_code);
     err_code = app_timer_start(secure_state.timer, MS_TO_TICKS(timeout_ms), NULL);
     APP_ERROR_CHECK(err_code);
     secure_state.pairing = 1;
@@ -187,7 +196,7 @@ void secure_ble_event(ble_evt_t* event)
       if (event->evt.gap_evt.params.auth_status.bonded)
       {
         // NOTE: LTK is 16 byte. The current maximum mesh value can only be 15.
-        Mesh_SetValue(&mesh_node, MESH_NODEID_SELF, MESH_KEY_LTK0, secure_keys.p.enc.enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
+        Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, MESH_KEY_LTK0, secure_keys.p.enc.enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
         Mesh_Sync(&mesh_node);
       }
     }

@@ -109,6 +109,7 @@ void nrfmesh_init(void)
 #if defined(INCLUDE_STATISTICS)
   statistics_init();
 #endif
+  secure_init();
   meshkeepalive_init();
 }
 
