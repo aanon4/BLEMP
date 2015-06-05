@@ -335,7 +335,7 @@
 						</toolChain>
 					</folderInfo>
 					<sourceEntries>
-						<entry excluding="services/devmanager.h|device_manager_cnfg.h|umm_malloc|mesh/MeshUnitTests|mesh/Simulator|mesh/Mesh.xcodeproj|mesh/xcode|nrf51_sdk/device_manager_peripheral.c|nrf51_sdk/device_manager_central.c|services/devmanager.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
+						<entry excluding="services/devmanager.h|device_manager_cnfg.h|mesh/MeshUnitTests|mesh/Simulator|mesh/Mesh.xcodeproj|mesh/xcode|nrf51_sdk/device_manager_peripheral.c|nrf51_sdk/device_manager_central.c|services/devmanager.c" flags="VALUE_WORKSPACE_PATH|RESOLVED" kind="sourcePath" name="src"/>
 					</sourceEntries>
 				</configuration>
 			</storageModule>
