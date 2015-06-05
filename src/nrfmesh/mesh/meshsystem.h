@@ -24,9 +24,9 @@
 #define	Mesh_System_memset      memset
 
 #if ENABLE_MESH_MALLOC
-#include "umm_malloc/umm_malloc.h"
 #define	Mesh_System_Malloc      umm_malloc
 #define	Mesh_System_Free        umm_free
+#include "umm_malloc/umm_malloc.h"
 #endif
 
 #define Mesh_System_ReadAck(NODE)
@@ -59,7 +59,7 @@ extern unsigned short Mesh_System_RandomNumber(unsigned short limit);
 #if !defined(Mesh_System_Malloc)
 extern unsigned char* Mesh_System_Malloc(unsigned short length);
 #endif
-#if !defined(MEsh_System_Free)
+#if !defined(Mesh_System_Free)
 extern void Mesh_System_Free(unsigned char* memory);
 #endif
 #endif

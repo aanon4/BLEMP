@@ -116,6 +116,13 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           node->ids[arg].flag.retry = 0;
           node->ids[arg].flag.blacklisted = 0;
           node->sync.neighbor->retries = 0;
+#if ENABLE_MESH_MALLOC
+          node->sync.value.buffer = Mesh_System_Malloc(MESH_MAX_VALUE_SIZE);
+          if (node->sync.value.buffer == NULL)
+          {
+            status = MESH_OOM;
+          }
+#endif
         }
         break;
 
@@ -134,32 +141,45 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       case MESH_EVENT_INMASTERMODE:
         // In master mode - find someone to sync with
         node->lastsync = Mesh_System_Tick();
-      {
-      lookforsync:;
-        Mesh_ChangeBits changes = Mesh_GetChangeBits(node);
-        unsigned char count = MESH_MAX_NEIGHBORS;
-        // If we have a set connection priority, we do that first
-        if (node->sync.priority == MESH_NODEID_INVALID || Mesh_FindNeighbor(node, node->sync.priority, &node->sync.neighbor) != MESH_OK)
+#if ENABLE_MESH_MALLOC
+        node->sync.value.buffer = Mesh_System_Malloc(MESH_MAX_VALUE_SIZE);
+        if (node->sync.value.buffer == NULL)
         {
-          node->sync.neighbor = &node->neighbors.neighbors[Mesh_System_RandomNumber(MESH_MAX_NEIGHBORS)];
+          status = MESH_OOM;
+          goto nosync;
         }
-        node->sync.priority = MESH_NODEID_INVALID;
+#endif
+        {
+        lookforsync:;
+          Mesh_ChangeBits changes = Mesh_GetChangeBits(node);
+          unsigned char count = MESH_MAX_NEIGHBORS;
+          // If we have a set connection priority, we do that first
+          if (node->sync.priority == MESH_NODEID_INVALID || Mesh_FindNeighbor(node, node->sync.priority, &node->sync.neighbor) != MESH_OK)
+          {
+            node->sync.neighbor = &node->neighbors.neighbors[Mesh_System_RandomNumber(MESH_MAX_NEIGHBORS)];
+          }
+          node->sync.priority = MESH_NODEID_INVALID;
 
-        for (; count; count--)
-        {
-          if (!node->ids[node->sync.neighbor->id].flag.retry && node->ids[node->sync.neighbor->id].flag.valid && (changes & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
+          for (; count; count--)
           {
-            // Found one
-            node->state = MESH_STATE_SYNCMASTERCONNECTING;
-            Mesh_System_Connect(node);
-            goto foundsync;
-          }
-          if (--node->sync.neighbor < &node->neighbors.neighbors[0])
-          {
-            node->sync.neighbor = &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
+            if (!node->ids[node->sync.neighbor->id].flag.retry && node->ids[node->sync.neighbor->id].flag.valid && (changes & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
+            {
+              // Found one
+              node->state = MESH_STATE_SYNCMASTERCONNECTING;
+              Mesh_System_Connect(node);
+              goto foundsync;
+            }
+            if (--node->sync.neighbor < &node->neighbors.neighbors[0])
+            {
+              node->sync.neighbor = &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
+            }
           }
         }
-      }
+#if ENABLE_MESH_MALLOC
+        Mesh_System_Free(node->sync.value.buffer);
+        node->sync.value.buffer = NULL;
+#endif
+      nosync:;
         // No one left changed.
         node->sync.neighbor = NULL;
         node->state = MESH_STATE_SWITCHTOPERIPHERAL;
@@ -278,6 +298,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         node->sync.ukv = node->values.values;
         node->sync.activeneighbors = &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
         node->sync.count = node->values.count;
+        node->sync.value.key = MESH_KEY_INVALID;
         goto writing;
 
       default:
@@ -322,6 +343,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         {
           for (unsigned char pos = 0; pos + 1 <= node->sync.bufferlen && status == MESH_OK;)
           {
+            unsigned char* value = NULL;
             switch ((Mesh_Payload)node->sync.buffer[pos++])
             {
               case MESH_PAYLOADNODEID:
@@ -352,51 +374,81 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 }
                 else
                 {
-                  Mesh_Key key = 0;
-                  Mesh_System_memmove(&key, (Mesh_Key*)&node->sync.buffer[pos], sizeof(Mesh_Key)); // mis-aligned
-                  Mesh_Version version = *(Mesh_Version*)&node->sync.buffer[pos + sizeof(Mesh_Key)];
-                  unsigned char length = node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version)];
-                  unsigned char* value = &node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1];
+                  node->sync.value.key = 0;
+                  Mesh_System_memmove(&node->sync.value.key, (Mesh_Key*)&node->sync.buffer[pos], sizeof(Mesh_Key)); // mis-aligned
+                  node->sync.value.version = *(Mesh_Version*)&node->sync.buffer[pos + sizeof(Mesh_Key)];
+                  node->sync.value.length = node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version)];
+                  value = &node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1];
+                  pos += sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1;
                   if (node->sync.id == MESH_NODEID_INVALID)
                   {
                     status = MESH_BADPAYLOAD;
                   }
                   else
                   {
-                    status = Mesh_SyncValue(node, node->sync.id, key, value, length, version, node->sync.changebits);
-                    if (status == MESH_NOTFOUND)
+                    if (pos + node->sync.value.length > node->sync.bufferlen)
                     {
-                      // A new key, so we create it
-                      status = Mesh_SetValueInternal(node, node->sync.id, key, value, length, 1, version, node->sync.changebits);
-  #if ENABLE_MESH_TRIMMING
-                      // We have no space for this new value. If Mesh Trimming is enabled, we are allowed to throw away
-                      // old values which are not specifically for this node. This decreases efficiency if that UKV is
-                      // retransmitted, but that will be rare (if ever). It also means nodes no longer hold the entire mesh
-                      // state but only a subset.
-                      if (status == MESH_OOM)
+                      unsigned char actual = node->sync.bufferlen - pos;
+                      Mesh_System_memmove(node->sync.value.buffer, value, actual);
+                      node->sync.value.offset = actual;
+                      pos += actual;
+                    }
+                    else
+                    {
+                      pos += node->sync.value.length;
+                    syncnow:;
+                      status = Mesh_SyncValue(node, node->sync.id, node->sync.value.key, value, node->sync.value.length, node->sync.value.version, node->sync.changebits);
+                      if (status == MESH_NOTFOUND)
                       {
-                        status = Mesh_Trim(node, length);
-                        if (status == STATUS_OK)
+                        // A new key, so we create it
+                        status = Mesh_SetValueInternal(node, node->sync.id, node->sync.value.key, value, node->sync.value.length, 1, node->sync.value.version, node->sync.changebits);
+#if ENABLE_MESH_TRIMMING
+                        // We have no space for this new value. If Mesh Trimming is enabled, we are allowed to throw away
+                        // old values which are not specifically for this node. This decreases efficiency if that UKV is
+                        // retransmitted, but that will be rare (if ever). It also means nodes no longer hold the entire mesh
+                        // state but only a subset.
+                        if (status == MESH_OOM)
                         {
-                          status = Mesh_SetValueInternal(node, node->sync.id, key, value, length, 1, version, node->sync.changebits);
+                          status = Mesh_Trim(node, length);
+                          if (status == STATUS_OK)
+                          {
+                            status = Mesh_SetValueInternal(node, node->sync.id, key, value, length, 1, version, node->sync.changebits);
+                          }
                         }
+#endif
+                        Mesh_System_ValueChanged(node, node->sync.id, node->sync.value.key, value, node->sync.value.length);
                       }
-  #endif
-                      Mesh_System_ValueChanged(node, node->sync.id, key, value, length);
-                    }
-                    else if (status == MESH_CHANGE)
-                    {
-                      Mesh_System_ValueChanged(node, node->sync.id, key, value, length);
-                      status = MESH_OK;
-                    }
-                    else if (status == MESH_NOCHANGE)
-                    {
-                      status = MESH_OK;
+                      else if (status == MESH_CHANGE)
+                      {
+                        Mesh_System_ValueChanged(node, node->sync.id, node->sync.value.key, value, node->sync.value.length);
+                        status = MESH_OK;
+                      }
+                      else if (status == MESH_NOCHANGE)
+                      {
+                        status = MESH_OK;
+                      }
                     }
                   }
-                  pos += sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1 + length;
                 }
                 break;
+
+              case MESH_PAYLOADUKVDATA:
+              {
+                unsigned char length = node->sync.bufferlen - pos;
+                if (length > node->sync.value.length - node->sync.value.offset)
+                {
+                  length = node->sync.value.length - node->sync.value.offset;
+                }
+                Mesh_System_memmove(node->sync.value.buffer + node->sync.value.offset, node->sync.buffer + pos, length);
+                node->sync.value.offset += length;
+                pos += length;
+                if (node->sync.value.offset == node->sync.value.length)
+                {
+                  value = node->sync.value.buffer;
+                  goto syncnow;
+                }
+                break;
+              }
 
               case MESH_PAYLOADNEIGHBORS:
                 if (pos + sizeof(Mesh_NodeAddress) + sizeof(Mesh_RSSI) > node->sync.bufferlen)
@@ -436,20 +488,21 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 
               case MESH_PAYLOADDONE:
                 switch (node->state)
-              {
-                case MESH_STATE_SYNCMASTERREADING:
-                  // We have all the differences from the neighbor - so we're done
-                  node->state = MESH_STATE_SYNCMASTERDONE;
-                  node->ids[node->sync.neighbor->id].flag.valid = 1;
-                  goto mastersyncdone;
+                {
+                  case MESH_STATE_SYNCMASTERREADING:
+                    // We have all the differences from the neighbor - so we're done
+                    node->state = MESH_STATE_SYNCMASTERDONE;
+                    node->ids[node->sync.neighbor->id].flag.valid = 1;
+                    goto mastersyncdone;
 
-                case MESH_STATE_SYNCPERIPHERALREADING:
-                  node->state = MESH_STATE_SYNCPERIPHERALWRITING;
-                  break;
+                  case MESH_STATE_SYNCPERIPHERALREADING:
+                    node->state = MESH_STATE_SYNCPERIPHERALWRITING;
+                    node->sync.value.key = MESH_KEY_INVALID;
+                    break;
 
-                default:
-                  goto badstate;
-              }
+                  default:
+                    goto badstate;
+                }
                 break;
 
               default:
@@ -586,19 +639,49 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           }
           else
           {
-            if (pos + 1 + sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1 + node->sync.ukv->length > MESH_MAX_WRITE_SIZE)
+            if (node->sync.value.key == MESH_KEY_INVALID)
             {
-              break;
+              if (pos + 1 + sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1 > MESH_MAX_WRITE_SIZE)
+              {
+                break;
+              }
+              node->sync.value.offset = 0;
+              node->sync.value.key = node->sync.ukv->key;
+              node->sync.buffer[pos++] = MESH_PAYLOADUKV;
+              Mesh_System_memmove(&node->sync.buffer[pos], &node->sync.ukv->key, sizeof(Mesh_Key)); // mis-aligned
+              *(Mesh_Version*)&node->sync.buffer[pos + sizeof(Mesh_Key)] = node->sync.ukv->version;
+              node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version)] = node->sync.ukv->length;
+              pos += sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1;
+              if (pos >= MESH_MAX_WRITE_SIZE)
+              {
+                break;
+              }
             }
-            node->sync.buffer[pos++] = MESH_PAYLOADUKV;
-            Mesh_System_memmove(&node->sync.buffer[pos], &node->sync.ukv->key, sizeof(Mesh_Key)); // mis-aligned
-            *(Mesh_Version*)&node->sync.buffer[pos + sizeof(Mesh_Key)] = node->sync.ukv->version;
-            node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version)] = node->sync.ukv->length;
-            Mesh_System_memmove(&node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1], MESH_UKV_VALUE(node->sync.ukv), node->sync.ukv->length);
-            pos += sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1 + node->sync.ukv->length;
-            node->sync.ukv->changebits &= ~node->sync.neighborchangebit;
-            node->sync.ukv++;
-            node->sync.count--;
+            else
+            {
+              if (pos + 1 + 1 > MESH_MAX_WRITE_SIZE) // At least 1 data byte
+              {
+                break;
+              }
+              node->sync.buffer[pos++] = MESH_PAYLOADUKVDATA;
+            }
+
+            unsigned char remaining = node->sync.ukv->length - node->sync.value.offset;
+            if (pos + remaining > MESH_MAX_WRITE_SIZE)
+            {
+              remaining = MESH_MAX_WRITE_SIZE - pos;
+            }
+            Mesh_System_memmove(&node->sync.buffer[pos], MESH_UKV_VALUE(node->sync.ukv) + node->sync.value.offset, remaining);
+            node->sync.value.offset += remaining;
+            pos += remaining;
+
+            if (node->sync.value.offset == node->sync.ukv->length)
+            {
+              node->sync.ukv->changebits &= ~node->sync.neighborchangebit;
+              node->sync.ukv++;
+              node->sync.count--;
+              node->sync.value.key = MESH_KEY_INVALID;
+            }
           }
         }
         node->sync.bufferlen = pos;
@@ -686,6 +769,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 }
               }
             }
+#if ENABLE_MESH_MALLOC
+            Mesh_System_Free(node->sync.value.buffer);
+            node->sync.value.buffer = NULL;
+#endif
             if (changes)
             {
               node->state = MESH_STATE_SWITCHTOMASTER;
@@ -756,6 +843,10 @@ Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key,
   if (count >= MESH_MAX_VALUES)
   {
     return MESH_OOM;
+  }
+  if (length > MESH_MAX_VALUE_SIZE)
+  {
+    return MESH_TOOBIG;
   }
   if (!MESH_UKV_CANINLINE(length))
   {

@@ -56,11 +56,18 @@
 #endif
 
 //
+// The maximum value size a value can be.
+//
+#if !defined(MESH_MAX_VALUE_SIZE)
+#define MESH_MAX_VALUE_SIZE           32
+#endif
+
+//
 // Enable mesh malloc.
 // Without malloc, mesh values are restricted to a maximum size of MESH_DEFAULT_VALUE_SIZE bytes.
 //
 #if !defined(ENABLE_MESH_MALLOC)
-#define ENABLE_MESH_MALLOC             0
+#define ENABLE_MESH_MALLOC             1
 #endif
 
 //
@@ -109,6 +116,7 @@ typedef unsigned char Mesh_NodeId;
 typedef unsigned short Mesh_Key;
 #define	MESH_KEY_INTERNAL             0xFF00
 #define MESH_KEY_KEEPALIVE            (MESH_KEY_INTERNAL + 0)
+#define MESH_KEY_INVALID              0xFFFF
 
 typedef unsigned char Mesh_Version;
 #define MESH_VERSION_DIFF             ((Mesh_Version)0x7F)
@@ -246,6 +254,21 @@ typedef struct Mesh_Node
     unsigned char   buffer[MESH_BUFFER_SIZE];
     unsigned char   bufferlen;
     Mesh_Neighbor*  activeneighbors;
+    struct
+    {
+#if MESH_MAX_VALUE_SIZE <= MESH_MAX_WRITE_SIZE - 5
+      // Not used if we can always fit a value into a write buffer
+      unsigned char   buffer[0];
+#elif ENABLE_MESH_MALLOC
+      unsigned char*  buffer;
+#else
+      unsigned char   buffer[MESH_MAX_VALUE_SIZE];
+#endif
+      Mesh_Key        key;
+      Mesh_Version    version;
+      unsigned char   offset;
+      unsigned char   length;
+    } value;
   }               sync;
 } Mesh_Node;
 
@@ -290,6 +313,7 @@ typedef enum Mesh_Status
   MESH_BADSTATE,
   MESH_BADPAYLOAD,
   MESH_BUSY,
+  MESH_TOOBIG,
 } Mesh_Status;
 
 //
@@ -302,6 +326,7 @@ typedef enum Mesh_Payload
   MESH_PAYLOADUKV = 2,
   MESH_PAYLOADNEIGHBORS = 3,
   MESH_PAYLOADRESET = 4,
+  MESH_PAYLOADUKVDATA = 5,
   MESH_PAYLOADDONE = 127,
 } Mesh_Payload;
 
