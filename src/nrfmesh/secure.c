@@ -73,6 +73,17 @@ static struct
     },
 };
 
+typedef struct
+{
+  uint8_t buf[sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN];
+} secure_keytransfer;
+
+static const secure_keytransfer emptybuf;
+
+static uint8_t secure_havekeyspace(void);
+static uint8_t secure_newkey(ble_gap_enc_key_t* enc);
+static uint8_t secure_selectkey(uint16_t ediv);
+
 
 static void secure_handler_irq(void* dummy)
 {
@@ -87,7 +98,7 @@ void secure_init(void)
   APP_ERROR_CHECK(err_code);
 }
 
-void secure_set_keys(uint8_t* passkey, uint32_t timeout_ms, uint8_t* oob, uint8_t* irk)
+void secure_set_keys(uint8_t* passkey, int32_t timeout_ms, uint8_t* oob, uint8_t* irk)
 {
   uint32_t err_code;
 
@@ -111,18 +122,32 @@ void secure_set_keys(uint8_t* passkey, uint32_t timeout_ms, uint8_t* oob, uint8_
   err_code = sd_ble_gap_address_get(&secure_keys.p.id.id_addr_info);
   APP_ERROR_CHECK(err_code);
 
-  ble_opt_t kopt =
+  // 0-key is equivalent to "just work" pairing.
+  if (strncmp(passkey, "000000", 6) == 0)
   {
-      .gap_opt.passkey.p_passkey = passkey
-  };
-  err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &kopt);
-  APP_ERROR_CHECK(err_code);
+    secure_state.periph_auth.io_caps = BLE_GAP_IO_CAPS_NONE;
+  }
+  else
+  {
+    secure_state.periph_auth.io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY;
+    ble_opt_t kopt =
+    {
+        .gap_opt.passkey.p_passkey = passkey
+    };
+    err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &kopt);
+    APP_ERROR_CHECK(err_code);
+  }
 
   // Enable pairing for a limited period of time after setting up keys
   if (timeout_ms > 0)
   {
     err_code = app_timer_start(secure_state.timer, MS_TO_TICKS(timeout_ms), NULL);
     APP_ERROR_CHECK(err_code);
+
+    secure_state.pairing = 1;
+  }
+  else if (timeout_ms == -1)
+  {
     secure_state.pairing = 1;
   }
 }
@@ -148,6 +173,7 @@ void secure_ble_event(ble_evt_t* event)
     break;
 
   case BLE_GAP_EVT_SEC_INFO_REQUEST:
+    secure_selectkey(event->evt.gap_evt.params.sec_info_request.master_id.ediv);
     err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, &secure_keys.p.enc.enc_info, NULL, NULL);
     break;
 
@@ -166,7 +192,7 @@ void secure_ble_event(ble_evt_t* event)
       }
       else
       {
-        if (secure_state.pairing)
+        if (secure_state.pairing && secure_havekeyspace())
         {
           err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.periph_auth, &secure_state.keyset);
           APP_ERROR_CHECK(err_code);
@@ -195,9 +221,7 @@ void secure_ble_event(ble_evt_t* event)
     {
       if (event->evt.gap_evt.params.auth_status.bonded)
       {
-        // NOTE: LTK is 16 byte. The current maximum mesh value can only be 15.
-        Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, MESH_KEY_LTK0, secure_keys.p.enc.enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
-        Mesh_Sync(&mesh_node);
+        secure_newkey(&secure_keys.p.enc);
       }
     }
     break;
@@ -207,10 +231,73 @@ void secure_ble_event(ble_evt_t* event)
   }
 }
 
-void secure_mesh_valuechanged(Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
+static uint8_t secure_havekeyspace(void)
 {
-  if (key == MESH_KEY_LTK0)
+  secure_keytransfer buf;
+
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
   {
-    memcpy(secure_keys.p.enc.enc_info.ltk, value, BLE_GAP_SEC_KEY_LEN);
+    uint8_t length = sizeof(buf);
+    Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
+    if (status == MESH_NOTFOUND || (status == MESH_OK && length == sizeof(buf) && memcmp(buf.buf, emptybuf.buf, length) == 0))
+    {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+static uint8_t secure_newkey(ble_gap_enc_key_t* enc)
+{
+  secure_keytransfer buf;
+
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
+  {
+    uint8_t length = sizeof(buf);
+    Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
+    if (status == MESH_NOTFOUND || (status == MESH_OK && length == sizeof(buf) && memcmp(buf.buf, emptybuf.buf, length) == 0))
+    {
+      memcpy(buf.buf, &enc->master_id.ediv, sizeof(uint16_t));
+      memcpy(buf.buf + sizeof(uint16_t), enc->enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
+      Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, sizeof(buf.buf));
+      Mesh_Sync(&mesh_node);
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+static uint8_t secure_selectkey(uint16_t ediv)
+{
+  secure_keytransfer buf;
+
+  memset(secure_keys.p.enc.enc_info.ltk, 0, BLE_GAP_SEC_KEY_LEN);
+
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
+  {
+    uint8_t length = sizeof(buf);
+    if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length) == MESH_OK)
+    {
+      if (memcmp(buf.buf, &ediv, sizeof(ediv)) == 0)
+      {
+        memcpy(secure_keys.p.enc.enc_info.ltk, buf.buf + sizeof(uint16_t), BLE_GAP_SEC_KEY_LEN);
+        return 1;
+      }
+    }
+  }
+
+  return 0;
+}
+
+void secure_reset_bonds(void)
+{
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
+  {
+    uint8_t length = 0;
+    if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, NULL, &length) == MESH_OK)
+    {
+      Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, (uint8_t*)emptybuf.buf, sizeof(emptybuf.buf));
+    }
   }
 }
