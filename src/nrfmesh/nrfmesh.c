@@ -96,21 +96,26 @@ void nrfmesh_init(void)
 	err_code = app_timer_create(&mesh_state.timer, APP_TIMER_MODE_SINGLE_SHOT, &retry_handler_irq);
 	APP_ERROR_CHECK(err_code);
 
-	static const ble_gap_scan_params_t scan =
-	{
-		.interval = SCAN_INTERVAL,
-		.window = SCAN_WINDOW,
-		.timeout = SCAN_TIMEOUT
-	};
-	STAT_RECORD_INC(scan_start_count);
-	err_code = sd_ble_gap_scan_start(&scan);
-	APP_ERROR_CHECK(err_code);
-
 #if defined(INCLUDE_STATISTICS)
   statistics_init();
 #endif
   secure_init();
   meshkeepalive_init();
+}
+
+void nrfmesh_start(void)
+{
+  uint32_t err_code;
+
+  static const ble_gap_scan_params_t scan =
+  {
+    .interval = SCAN_INTERVAL,
+    .window = SCAN_WINDOW,
+    .timeout = SCAN_TIMEOUT
+  };
+  STAT_RECORD_INC(scan_start_count);
+  err_code = sd_ble_gap_scan_start(&scan);
+  APP_ERROR_CHECK(err_code);
 }
 
 void nrfmesh_timer_handler(void)
@@ -209,10 +214,7 @@ void nrfmesh_ble_event(ble_evt_t* event)
 				mesh_state.attr_handle = mesh_node.sync.neighbor->handle;
 				STAT_RECORD_INC(connections_out_success_count);
 				STAT_TIMER_END(connecting_out_total_time_ms);
-				if (!secure_authenticate(mesh_state.out_handle))
-				{
-				  Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
-				}
+				secure_authenticate(mesh_state.out_handle);
 		    err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
 		    APP_ERROR_CHECK(err_code);
 			}

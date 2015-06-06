@@ -12,6 +12,7 @@
 #include <app_error.h>
 
 #include "nrfmesh/nrfmesh.h"
+#include "gap.h"
 #include "advertising.h"
 
 /**@brief Function for initializing the Advertising functionality.
@@ -42,14 +43,16 @@ void advertising_init(void)
     };
     ble_advdata_t adv_data =
     {
-        .flags.p_data = &flags,
-        .flags.size = sizeof(flags),
+      .flags.p_data = &flags,
+      .flags.size = sizeof(flags),
     	.p_manuf_specific_data = &manu_data
     };
+
+    static const uint8_t name[] = { PRODUCT_NAME, '?', '?' };
     ble_advdata_t scan_rsp =
     {
     	.name_type = BLE_ADVDATA_SHORT_NAME,
-    	.short_name_len = 8
+    	.short_name_len = sizeof(name)
     };
 
     err_code = ble_advdata_set(&adv_data, &scan_rsp);

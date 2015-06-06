@@ -121,7 +121,7 @@ int main(void)
 	sd_ble_gap_tx_power_set(TX_POWER);
 
 	// Service setup
-	gap_params_init();
+	gap_init();
 	devinfo_init();
 	advertising_init();
 	conn_params_init();
@@ -130,13 +130,16 @@ int main(void)
 
 	// Mesh setup
   nrfmesh_init();
-  secure_set_keys("123456", (60 * 1000), "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default keys
 
   // Sensor setup
 	temperature_init();
 	access_init();
 
 	// Begin ...
+  secure_set_passkey("000000", (30 * 1000));
+  secure_set_keys("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default keys
+  nrfmesh_start();
+
 	advertising_start();
 	while (1)
 	{

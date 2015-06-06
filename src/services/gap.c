@@ -21,7 +21,7 @@
  * @details This function sets up all the necessary GAP (Generic Access Profile) parameters of the
  *          device including the device name, appearance, and the preferred connection parameters.
  */
-void gap_params_init(void)
+void gap_init(void)
 {
     uint32_t                err_code;
 
@@ -32,7 +32,7 @@ void gap_params_init(void)
     static const ble_gap_conn_sec_mode_t sec_mode = { 1, 1 };
     const uint8_t id = mac.addr[0];
     const uint8_t name[] = { PRODUCT_NAME,  (id < 0xA0 ? '0' : 'A' - 10) + (id >> 4),  ((id & 0xF) < 0xA ? '0' : 'A' - 10) + (id & 0xF) };
-    err_code = sd_ble_gap_device_name_set(&sec_mode,  name, strlen(name));
+    err_code = sd_ble_gap_device_name_set(&sec_mode,  name, sizeof(name));
     APP_ERROR_CHECK(err_code);
 
     err_code = sd_ble_gap_appearance_set(BLE_APPEARANCE_UNKNOWN);

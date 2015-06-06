@@ -84,7 +84,6 @@ static uint8_t secure_havekeyspace(void);
 static uint8_t secure_newkey(ble_gap_enc_key_t* enc);
 static uint8_t secure_selectkey(uint16_t ediv);
 
-
 static void secure_handler_irq(void* dummy)
 {
   secure_state.pairing = 0;
@@ -98,11 +97,45 @@ void secure_init(void)
   APP_ERROR_CHECK(err_code);
 }
 
-void secure_set_keys(uint8_t* passkey, int32_t timeout_ms, uint8_t* oob, uint8_t* irk)
+void secure_set_passkey(uint8_t* passkey, int32_t timeout_ms)
 {
   uint32_t err_code;
 
+  // 0-key is equivalent to "just work" pairing.
+  if (strncmp(passkey, "000000", 6) == 0)
+  {
+    secure_state.periph_auth.io_caps = BLE_GAP_IO_CAPS_NONE;
+  }
+  else
+  {
+    secure_state.periph_auth.io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY;
+    ble_opt_t kopt =
+    {
+        .gap_opt.passkey.p_passkey = passkey
+    };
+    err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &kopt);
+    APP_ERROR_CHECK(err_code);
+  }
+
   secure_state.pairing = 0;
+
+  // Enable pairing for a limited period of time after setting up keys
+  if (timeout_ms > 0)
+  {
+    err_code = app_timer_start(secure_state.timer, MS_TO_TICKS(timeout_ms), NULL);
+    APP_ERROR_CHECK(err_code);
+
+    secure_state.pairing = 1;
+  }
+  else if (timeout_ms < 0)
+  {
+    secure_state.pairing = 1;
+  }
+}
+
+void secure_set_keys(uint8_t* oob, uint8_t* irk)
+{
+  uint32_t err_code;
 
   memcpy(secure_state.oob, oob, BLE_GAP_SEC_KEY_LEN);
   memcpy(secure_keys.p.id.id_info.irk, irk, BLE_GAP_SEC_KEY_LEN);
@@ -121,45 +154,14 @@ void secure_set_keys(uint8_t* passkey, int32_t timeout_ms, uint8_t* oob, uint8_t
 
   err_code = sd_ble_gap_address_get(&secure_keys.p.id.id_addr_info);
   APP_ERROR_CHECK(err_code);
-
-  // 0-key is equivalent to "just work" pairing.
-  if (strncmp(passkey, "000000", 6) == 0)
-  {
-    secure_state.periph_auth.io_caps = BLE_GAP_IO_CAPS_NONE;
-  }
-  else
-  {
-    secure_state.periph_auth.io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY;
-    ble_opt_t kopt =
-    {
-        .gap_opt.passkey.p_passkey = passkey
-    };
-    err_code = sd_ble_opt_set(BLE_GAP_OPT_PASSKEY, &kopt);
-    APP_ERROR_CHECK(err_code);
-  }
-
-  // Enable pairing for a limited period of time after setting up keys
-  if (timeout_ms > 0)
-  {
-    err_code = app_timer_start(secure_state.timer, MS_TO_TICKS(timeout_ms), NULL);
-    APP_ERROR_CHECK(err_code);
-
-    secure_state.pairing = 1;
-  }
-  else if (timeout_ms == -1)
-  {
-    secure_state.pairing = 1;
-  }
 }
 
-uint8_t secure_authenticate(uint16_t handle)
+void secure_authenticate(uint16_t handle)
 {
   uint32_t err_code;
 
   err_code = sd_ble_gap_authenticate(handle, &secure_state.mesh_auth);
   APP_ERROR_CHECK(err_code);
-
-  return 1;
 }
 
 void secure_ble_event(ble_evt_t* event)

@@ -26,6 +26,7 @@
 extern Mesh_Node mesh_node;
 
 extern void nrfmesh_init(void);
+extern void nrfmesh_start(void);
 extern void nrfmesh_ble_event(ble_evt_t* event);
 extern void nrfmesh_timer_handler(void);
 
