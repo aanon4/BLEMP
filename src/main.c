@@ -136,7 +136,7 @@ int main(void)
 	access_init();
 
 	// Begin ...
-  secure_set_passkey("000000", (30 * 1000));
+  secure_set_passkey("123456", (30 * 1000));
   secure_set_keys("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default keys
   nrfmesh_start();
 
