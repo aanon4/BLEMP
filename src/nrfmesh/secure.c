@@ -176,6 +176,7 @@ void secure_ble_event(ble_evt_t* event)
 
   case BLE_GAP_EVT_SEC_INFO_REQUEST:
     secure_selectkey(event->evt.gap_evt.params.sec_info_request.master_id.ediv);
+    secure_keys.p.enc.enc_info.auth = 1;
     err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, &secure_keys.p.enc.enc_info, NULL, NULL);
     break;
 
