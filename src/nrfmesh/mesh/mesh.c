@@ -990,7 +990,7 @@ Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
   Mesh_UKV* values = node->values.values;
   for (unsigned short count = node->values.count; count; count--, values++)
   {
-    if (values->key.key == key.key && values->key.sub == key.sub && values->key.admin == key.admin)
+    if (values->id == id && values->key.key == key.key && values->key.sub == key.sub && values->key.admin == key.admin)
     {
       // write-local needs to match
       if (values->key.wrlocal != key.wrlocal)
