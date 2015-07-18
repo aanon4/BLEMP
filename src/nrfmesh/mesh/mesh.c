@@ -9,6 +9,8 @@
 #include "mesh.h"
 #include "meshsystem.h"
 
+static const Mesh_Key MESH_KEY_INVALID = { .key = 0xFFFF, .admin = 1 };
+
 //
 // Mesh Manager
 // This function processes incoming events from the network or application and runs the mesh syncing process.
@@ -374,7 +376,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 }
                 else
                 {
-                  node->sync.value.key = 0;
+                  node->sync.value.key = MESH_KEY_INVALID;
                   Mesh_System_memmove(&node->sync.value.key, (Mesh_Key*)&node->sync.buffer[pos], sizeof(Mesh_Key)); // mis-aligned
                   node->sync.value.version = *(Mesh_Version*)&node->sync.buffer[pos + sizeof(Mesh_Key)];
                   node->sync.value.length = node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version)];
@@ -639,7 +641,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           }
           else
           {
-            if (node->sync.value.key == MESH_KEY_INVALID)
+            if (Mesh_System_memcmp(&node->sync.value.key, &MESH_KEY_INVALID, sizeof(Mesh_Key)) == 0)
             {
               if (pos + 1 + sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1 > MESH_MAX_WRITE_SIZE)
               {
@@ -822,10 +824,14 @@ Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key,
 
   for (count = node->values.count; count; count--, values++)
   {
-    if (values->id == id && values->key == key)
+    if (values->id == id && Mesh_System_memcmp(&values->key, &key, sizeof(Mesh_Key)) == 0)
     {
       if (Mesh_System_memcmp(MESH_UKV_VALUE(values), value, values->length))
       {
+        if (key.rdonly)
+        {
+          return MESH_BADPERM;
+        }
         values->version++;
         goto dosync;
       }
@@ -869,11 +875,12 @@ Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key,
     signed short r = (id == values->id ? 0 : Mesh_System_memcmp(&node->ids[values->id].address, addr, sizeof(Mesh_NodeAddress)));
     if (r == 0)
     {
-      if (values->key > key)
+      r = Mesh_System_memcmp(&values->key, &key, sizeof(Mesh_Key));
+      if (r > 0)
       {
         goto move;
       }
-      else if (values->key == key)
+      else if (r == 0)
       {
         return MESH_DUPLICATE;
       }
@@ -914,7 +921,7 @@ Mesh_Status Mesh_GetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
   Mesh_UKV* values = node->values.values;
   for (unsigned short count = node->values.count; count; count--, values++)
   {
-    if (values->id == id && values->key == key)
+    if (values->id == id && Mesh_System_memcmp(&values->key, &key, sizeof(Mesh_Key)) == 0)
     {
       if (value == NULL)
       {
@@ -944,7 +951,7 @@ Mesh_Status Mesh_GetNthValue(Mesh_Node* node, Mesh_Key key, unsigned char nth, M
   Mesh_UKV* values = node->values.values;
   for (unsigned short count = node->values.count; count; count--, values++)
   {
-    if (values->key == key)
+    if (Mesh_System_memcmp(&values->key, &key, sizeof(Mesh_Key)) == 0)
     {
       if (!nth--)
       {
@@ -975,6 +982,10 @@ Mesh_Status Mesh_GetNthValue(Mesh_Node* node, Mesh_Key key, unsigned char nth, M
 //
 Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length)
 {
+  if ((key.wrlocal || key.rdonly) && id != MESH_NODEID_SELF)
+  {
+    return MESH_BADPERM;
+  }
   Mesh_Neighbor* neighbor;
   if (node->sync.priority == MESH_NODEID_INVALID && Mesh_FindNeighbor(node, id, &neighbor) == MESH_OK)
   {
@@ -994,7 +1005,7 @@ Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsign
 
   for (count = node->values.count; count; count--, current++)
   {
-    if (current->id == id && current->key == key)
+    if (current->id == id && Mesh_System_memcmp(&current->key, &key, sizeof(Mesh_Key)) == 0)
     {
       // Found a matching id/key. Now determine if we need to update the value
       unsigned char* ptr = MESH_UKV_VALUE(current);

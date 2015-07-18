@@ -114,10 +114,18 @@ typedef unsigned char Mesh_NodeId;
 #define MESH_NODEID_SELF              ((Mesh_NodeId)0)
 #define MESH_NODEID_GLOBAL            ((Mesh_NodeId)1)
 
-typedef unsigned short Mesh_Key;
-#define	MESH_KEY_INTERNAL             0xFF00
-#define MESH_KEY_KEEPALIVE            (MESH_KEY_INTERNAL + 0)
-#define MESH_KEY_INVALID              0xFFFF
+typedef struct
+{
+  unsigned short  key;
+  unsigned char   sub:4;
+  unsigned char   rdonly:1;
+  unsigned char   wrlocal:1;
+  unsigned char   unused:1;
+  unsigned char   admin:1;
+} __attribute__((packed)) Mesh_Key;
+//#define	MESH_KEY_INTERNAL             0xFF00
+//#define MESH_KEY_KEEPALIVE            (MESH_KEY_INTERNAL + 0)
+//#define MESH_KEY_INVALID              0xFFFF
 
 typedef unsigned char Mesh_Version;
 #define MESH_VERSION_DIFF             ((Mesh_Version)0x7F)
@@ -315,6 +323,7 @@ typedef enum Mesh_Status
   MESH_BADPAYLOAD,
   MESH_BUSY,
   MESH_TOOBIG,
+  MESH_BADPERM,
 } Mesh_Status;
 
 //

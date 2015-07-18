@@ -184,7 +184,7 @@ void simDumpState(void)
     Mesh_UKV* ukv = nodes[i].values.values;
     for (int j = 0; j < nodes[i].values.count; j++, ukv++)
     {
-      printf("  N%d K%04x V%02x C%02x D%08x\n", nodes[i].ids[ukv->id].address.address[0] - 1, ukv->key, ukv->version, ukv->changebits & mask, *(int*)&ukv->data.value);
+      printf("  N%d K%04x V%02x C%02x D%08x\n", nodes[i].ids[ukv->id].address.address[0] - 1, ukv->key.key, ukv->version, ukv->changebits & mask, *(int*)&ukv->data.value);
     }
   }
 }

@@ -25,29 +25,12 @@ class Mesh1NodeUnitTests: XCTestCase {
   }
 
   func test01SimpleSet() {
-    var data: [UInt8] = [1]
-    var result = MESH_OK
-    withUnsafeMutablePointer(&data[0]) { dataPtr -> Void in
-      result = Mesh_SetValueInternal(&nodes.0, 0, 0x1234, dataPtr, UInt8(data.count), 1, 1, 1)
-    }
-    XCTAssertEqual(result.value, MESH_OK.value, "Set fail")
+    Helpers.setValue(&nodes.0, target: 0, key: 0x1234, version: 1, value: 1)
   }
   
   func test02SimpleSetGet() {
-    var data: [UInt8] = [1]
-    var result = MESH_OK
-    withUnsafeMutablePointer(&data[0]) { dataPtr -> Void in
-      result = Mesh_SetValueInternal(&nodes.0, 0, 0x1234, dataPtr, UInt8(data.count), 1, 1, 1)
-    }
-    XCTAssertEqual(result.value, MESH_OK.value, "Set fail")
-    
-    var gdata: [UInt8] = [0]
-    withUnsafeMutablePointer(&gdata[0]) { gdataPtr -> Void in
-      var count = UInt8(gdata.count)
-      result = Mesh_GetValue(&nodes.0, 0, 0x1234, gdataPtr, &count)
-    }
-    XCTAssertEqual(result.value, MESH_OK.value, "Get fail")
-    XCTAssertEqual(gdata[0], UInt8(1), "Get value fail")
+    Helpers.setValue(&nodes.0, target: 0, key: 0x1234, version: 1, value: 1)
+    XCTAssertEqual(Helpers.getValue(&nodes.0, target: 0, key: 0x1234), 1, "Get value fail")
   }
 
 }
