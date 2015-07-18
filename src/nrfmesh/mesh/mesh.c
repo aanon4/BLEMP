@@ -982,12 +982,31 @@ Mesh_Status Mesh_GetNthValue(Mesh_Node* node, Mesh_Key key, unsigned char nth, M
 //
 Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length)
 {
+  // Keys which are read-only or write-local can only be set locally
   if ((key.wrlocal || key.rdonly) && id != MESH_NODEID_SELF)
   {
     return MESH_BADPERM;
   }
+  Mesh_UKV* values = node->values.values;
+  for (unsigned short count = node->values.count; count; count--, values++)
+  {
+    if (values->key.key == key.key && values->key.sub == key.sub && values->key.admin == key.admin)
+    {
+      // write-local needs to match
+      if (values->key.wrlocal != key.wrlocal)
+      {
+        return MESH_BADPERM;
+      }
+      // Key must be read/write if we're modifying it
+      if (values->key.rdonly || key.rdonly)
+      {
+        return MESH_BADPERM;
+      }
+      break;
+    }
+  }
   Mesh_Neighbor* neighbor;
-  if (node->sync.priority == MESH_NODEID_INVALID && Mesh_FindNeighbor(node, id, &neighbor) == MESH_OK)
+  if (id != MESH_NODEID_SELF && node->sync.priority == MESH_NODEID_INVALID && Mesh_FindNeighbor(node, id, &neighbor) == MESH_OK)
   {
     node->sync.priority = id;
   }
