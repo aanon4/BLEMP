@@ -17,7 +17,7 @@ extern void secure_reset_bonds(void);
 
 #define MESH_SECURE_MAX_BONDS     4
 
-#define MESH_KEY_LTK_FIRST        (MESH_KEY_INTERNAL + 0x10)
-#define MESH_KEY_LTK_LAST         (MESH_KEY_LTK_FIRST + MESH_SECURE_MAX_BONDS)
+//#define MESH_KEY_LTK_FIRST        (MESH_KEY_INTERNAL + 0x10)
+//#define MESH_KEY_LTK_LAST         (MESH_KEY_LTK_FIRST + MESH_SECURE_MAX_BONDS)
 
 #endif /* NRFMESH_SECURE_H_ */

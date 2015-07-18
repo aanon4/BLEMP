@@ -7,15 +7,16 @@
 
 #include <nordic_common.h>
 #include <ble.h>
+#include <app_scheduler.h>
 
 #include "nrfmesh/nrfmesh.h"
-#include "meshkeys.h"
 
 #include "services/timer.h"
 #include "services/i2c.h"
 
 #include "temperature.h"
 
+const Mesh_Key MESH_KEY_TEMPERATURE = { .key = 0x0010, .wrlocal = 1 };
 
 static app_timer_id_t timer;
 

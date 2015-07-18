@@ -34,7 +34,6 @@ void advertising_init(void)
     	mac.addr[3], mac.addr[2], mac.addr[1], mac.addr[0],
     	0xCA
     };
-    uint8_t flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE;
     ble_advdata_manuf_data_t manu_data =
     {
     	.company_identifier = 0x004C,
@@ -43,8 +42,7 @@ void advertising_init(void)
     };
     ble_advdata_t adv_data =
     {
-      .flags.p_data = &flags,
-      .flags.size = sizeof(flags),
+      .flags = BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE,
     	.p_manuf_specific_data = &manu_data
     };
 

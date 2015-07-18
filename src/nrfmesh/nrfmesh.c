@@ -12,6 +12,7 @@
 #include <ble_hci.h>
 #include <app_error.h>
 #include <nrf_soc.h>
+#include <app_scheduler.h>
 
 #include "mesh/mesh.h"
 #include "mesh/meshsystem.h"

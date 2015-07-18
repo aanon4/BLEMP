@@ -15,4 +15,6 @@ extern void meshkeepalive_timer_handler(void);
 extern void meshkeepalive_ble_event(ble_evt_t* event);
 #endif
 
+extern const Mesh_Key MESH_KEY_KEEPALIVE;
+
 #endif /* KEEPALIVE_H_ */

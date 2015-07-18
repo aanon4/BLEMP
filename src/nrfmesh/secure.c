@@ -19,6 +19,12 @@
 #include "nrfmesh.h"
 #include "secure.h"
 
+//#define MESH_KEY_LTK_FIRST        (MESH_KEY_INTERNAL + 0x10)
+//#define MESH_KEY_LTK_LAST         (MESH_KEY_LTK_FIRST + MESH_SECURE_MAX_BONDS)
+
+static const Mesh_Key MESH_KEY_LTK_FIRST = { .admin = 1, .key = 0x10 };
+static const Mesh_Key MESH_KEY_LTK_LAST  = { .admin = 1, .key = 0x10 + MESH_SECURE_MAX_BONDS };
+
 static struct
 {
   struct
@@ -238,7 +244,7 @@ static uint8_t secure_havekeyspace(void)
 {
   secure_keytransfer buf;
 
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
   {
     uint8_t length = sizeof(buf);
     Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
@@ -254,7 +260,7 @@ static uint8_t secure_newkey(ble_gap_enc_key_t* enc)
 {
   secure_keytransfer buf;
 
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
   {
     uint8_t length = sizeof(buf);
     Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
@@ -277,7 +283,7 @@ static uint8_t secure_selectkey(uint16_t ediv)
 
   memset(secure_keys.p.enc.enc_info.ltk, 0, BLE_GAP_SEC_KEY_LEN);
 
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
   {
     uint8_t length = sizeof(buf);
     if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length) == MESH_OK)
@@ -295,7 +301,7 @@ static uint8_t secure_selectkey(uint16_t ediv)
 
 void secure_reset_bonds(void)
 {
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key < MESH_KEY_LTK_LAST; key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
   {
     uint8_t length = 0;
     if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, NULL, &length) == MESH_OK)

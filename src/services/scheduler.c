@@ -6,7 +6,9 @@
  */
 
 #include <softdevice_handler.h>
+#include <app_timer_appsh.h>
 #include <app_timer.h>
+#include <app_scheduler.h>
 
 #include "scheduler.h"
 

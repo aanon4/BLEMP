@@ -9,7 +9,9 @@
  */
 
 #include <softdevice_handler.h>
+#include <softdevice_handler_appsh.h>
 #include <pstorage.h>
+#include <app_scheduler.h>
 
 #include "services/gpio.h"
 #include "services/i2c.h"
@@ -96,10 +98,10 @@ int main(void)
 	gpio_init();
 	scheduler_init();
 	// NB: If I put this init macro in it's one function in it's own service file, things stop working. No idea why :-(
-  APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, false);
+	APP_TIMER_INIT(APP_TIMER_PRESCALER, APP_TIMER_MAX_TIMERS, APP_TIMER_OP_QUEUE_SIZE, false);
 
 	// Initialize the SoftDevice handler module.
-	SOFTDEVICE_HANDLER_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, true);
+  SOFTDEVICE_HANDLER_APPSH_INIT(NRF_CLOCK_LFCLKSRC_XTAL_20_PPM, true);
 
 	// Enable BLE stack
 	ble_enable_params_t ble_enable_params =

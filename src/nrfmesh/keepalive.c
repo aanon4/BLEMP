@@ -5,6 +5,8 @@
  *      Author: tim
  */
 
+#include <string.h>
+
 #include <ble.h>
 
 #if defined(TESTING_KEEPALIVE)
@@ -16,15 +18,15 @@
 #include <nrf_soc.h>
 
 #include "nrfmesh.h"
-#if defined(TESTING_KEEPALIVE)
 #include "uuids.h"
-#endif
 #include "keepalive.h"
 
 static uint16_t keepalive_connection;
 static uint16_t keepalive_handle;
 
 #endif
+
+const Mesh_Key MESH_KEY_KEEPALIVE = { .admin = 1, .key = 0, .wrlocal = 1 };
 
 
 static uint8_t keepalive_count;
@@ -107,7 +109,7 @@ void meshkeepalive_ble_event(ble_evt_t* event)
 			uint8_t keepalives[mesh_node.values.count];
 			for (Mesh_UKV* v = mesh_node.values.values; v < &mesh_node.values.values[mesh_node.values.count]; v++)
 			{
-				if (v->key == MESH_KEY_KEEPALIVE)
+				if (memcmp(&v->key, &MESH_KEY_KEEPALIVE, sizeof(Mesh_Key)) == 0)
 				{
 					keepalives[i++] = MESH_UKV_VALUE(v)[0];
 				}

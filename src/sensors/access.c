@@ -14,8 +14,8 @@
 
 #include "nrfmesh/nrfmesh.h"
 
-#include "meshkeys.h"
 #include "sensoruuids.h"
+#include "temperature.h"
 #include "access.h"
 
 #define	MAX_PKT_SIZE	(GATT_MTU_SIZE_DEFAULT - 1)
