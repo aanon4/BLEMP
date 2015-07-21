@@ -89,10 +89,5 @@
 			<type>1</type>
 			<locationURI>WORKSPACE_LOC/nrf51_sdk/components/toolchain/system_nrf51422.c</locationURI>
 		</link>
-		<link>
-			<name>src/nrf51_sdk/twi_sw_master.c</name>
-			<type>1</type>
-			<locationURI>PARENT-2-PROJECT_LOC/nrf51_sdk/components/drivers_nrf/twi_master/incubated/twi_hw_master.c</locationURI>
-		</link>
 	</linkedResources>
 </projectDescription>

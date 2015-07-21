@@ -7,7 +7,7 @@
 
 #include <nordic_common.h>
 #include <ble.h>
-#include <app_scheduler.h>
+#include <nrf_soc.h>
 
 #include "nrfmesh/nrfmesh.h"
 
@@ -18,48 +18,21 @@
 
 const Mesh_Key MESH_KEY_TEMPERATURE = { .key = 0x0010, .wrlocal = 1 };
 
-static app_timer_id_t timer;
-
-static void temperature_measure(void* __ignore__, uint16_t __size__)
-{
-	static const uint8_t select_temp[] = { 0x00 };
-	uint8_t temperature_value[2] = {};
-
-	i2c_write(TEMPERATURE_ADDRESS, (uint8_t*)select_temp, sizeof(select_temp), true);
-	i2c_read(TEMPERATURE_ADDRESS, temperature_value, sizeof(temperature_value), true);
-
-	Mesh_SetValue(&mesh_node, MESH_NODEID_SELF, MESH_KEY_TEMPERATURE, temperature_value, sizeof(temperature_value));
-}
-
-static void temperature_measure_irq(void* __ignore__)
-{
-	app_sched_event_put(NULL, 0, temperature_measure);
-}
 
 void temperature_timer_handler(void)
 {
-	static const uint8_t initiate_read[] = { 0x01, 0xE1 };
-	uint32_t err_code;
+  uint32_t err_code;
 
-	i2c_write(TEMPERATURE_ADDRESS, (uint8_t*)initiate_read, sizeof(initiate_read), true);
+  int32_t temperature_value;
+  err_code = sd_temp_get(&temperature_value);
+  APP_ERROR_CHECK(err_code);
 
-	err_code = app_timer_start(timer, MS_TO_TICKS(TEMPERATURE_WAIT_MS), NULL);
-	APP_ERROR_CHECK(err_code);
+  temperature_value *= 25; // Convert 0.25C units to 0.01 units
+  Mesh_SetValue(&mesh_node, MESH_NODEID_SELF, MESH_KEY_TEMPERATURE, (uint8_t*)&temperature_value, sizeof(temperature_value));
 }
 
 void temperature_init(void)
 {
-	static const uint8_t setup[] = { 0x01, 0x61 };
-	uint32_t err_code;
-
-	// Setup the temperature sensor
-	i2c_write(TEMPERATURE_ADDRESS, (uint8_t*)setup, sizeof(setup), true);
-
-	// We need a one-shot timer to read the temp because we have to wait between initiating a read
-	// and being able to get the result
-	err_code = app_timer_create(&timer, APP_TIMER_MODE_SINGLE_SHOT, temperature_measure_irq);
-	APP_ERROR_CHECK(err_code);
-
 	// Read temp (so we have an initial value)
-	temperature_timer_handler();
+  temperature_timer_handler();
 }

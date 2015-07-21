@@ -14,7 +14,6 @@
 #include <app_scheduler.h>
 
 #include "services/gpio.h"
-#include "services/i2c.h"
 #include "services/timer.h"
 #include "services/scheduler.h"
 #include "services/advertising.h"
@@ -127,7 +126,6 @@ int main(void)
 	devinfo_init();
 	advertising_init();
 	conn_params_init();
-	i2c_init();
 	oneminutetimer_init();
 
 	// Mesh setup
