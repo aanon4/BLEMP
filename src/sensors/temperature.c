@@ -12,7 +12,6 @@
 #include "nrfmesh/nrfmesh.h"
 
 #include "services/timer.h"
-#include "services/i2c.h"
 
 #include "temperature.h"
 
