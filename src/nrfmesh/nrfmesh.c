@@ -38,7 +38,7 @@ static struct
 	uint16_t	sync_handle;
 	uint16_t	attr_handle;
 	app_timer_id_t timer;
-  uint8_t     rediscover_needed;
+  uint8_t   rediscover_needed;
 } mesh_state =
 {
 	.in_handle = BLE_CONN_HANDLE_INVALID,
