@@ -12,7 +12,7 @@
 
 #include "services/advertising.h"
 
-static Mesh_Key MESH_KEY_INFO = _MESH_KEY_INFO;
+static const Mesh_Key MESH_KEY_INFO = _MESH_KEY_INFO;
 
 void meshinfo_init(void)
 {
