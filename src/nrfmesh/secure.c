@@ -19,11 +19,8 @@
 #include "nrfmesh.h"
 #include "secure.h"
 
-//#define MESH_KEY_LTK_FIRST        (MESH_KEY_INTERNAL + 0x10)
-//#define MESH_KEY_LTK_LAST         (MESH_KEY_LTK_FIRST + MESH_SECURE_MAX_BONDS)
-
-static const Mesh_Key MESH_KEY_LTK_FIRST = { .admin = 1, .key = 0x10 };
-static const Mesh_Key MESH_KEY_LTK_LAST  = { .admin = 1, .key = 0x10 + MESH_SECURE_MAX_BONDS };
+static const Mesh_Key MESH_KEY_LTK_FIRST = _MESH_KEY_LTK_FIRST;
+static const Mesh_Key MESH_KEY_LTK_LAST  = _MESH_KEY_LTK_LAST;
 
 static struct
 {

@@ -26,7 +26,7 @@ static uint16_t keepalive_handle;
 
 #endif
 
-const Mesh_Key MESH_KEY_KEEPALIVE = { .admin = 1, .key = 0, .wrlocal = 1 };
+const Mesh_Key MESH_KEY_KEEPALIVE = _MESH_KEY_KEEPALIVE;
 
 
 static uint8_t keepalive_count;

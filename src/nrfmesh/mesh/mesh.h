@@ -123,9 +123,13 @@ typedef struct
   unsigned char   unused:1;
   unsigned char   admin:1;
 } __attribute__((packed)) Mesh_Key;
-//#define	MESH_KEY_INTERNAL             0xFF00
-//#define MESH_KEY_KEEPALIVE            (MESH_KEY_INTERNAL + 0)
-//#define MESH_KEY_INVALID              0xFFFF
+
+// Some pre-defined admin keys
+#define _MESH_KEY_KEEPALIVE           { .admin = 1, .wrlocal = 1, .key = 0 }
+#define _MESH_KEY_INFO                { .admin = 1, .rdonly  = 1, .key = 1 }
+#define _MESH_KEY_LTK_FIRST           { .admin = 1, .key = 0x10 }
+#define _MESH_KEY_LTK_LAST            { .admin = 1, .key = 0x10 + MESH_SECURE_MAX_BONDS }
+#define _MESH_KEY_INVALID             { .admin = 1, .key = 0xFFFF }
 
 typedef unsigned char Mesh_Version;
 #define MESH_VERSION_DIFF             ((Mesh_Version)0x7F)

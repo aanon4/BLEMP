@@ -9,7 +9,7 @@
 #include "mesh.h"
 #include "meshsystem.h"
 
-static const Mesh_Key MESH_KEY_INVALID = { .key = 0xFFFF, .admin = 1 };
+static const Mesh_Key MESH_KEY_INVALID = _MESH_KEY_INVALID;
 
 //
 // Mesh Manager
