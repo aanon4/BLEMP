@@ -25,6 +25,7 @@
 #include "nrfmesh.h"
 #include "secure.h"
 #include "keepalive.h"
+#include "meshinfo.h"
 #include "statistics.h"
 
 #define MESH_ADDRESS_TYPE   (BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE)
@@ -102,6 +103,7 @@ void nrfmesh_init(void)
 #endif
   secure_init();
   meshkeepalive_init();
+  meshinfo_init();
 }
 
 void nrfmesh_start(void)
