@@ -85,6 +85,7 @@ static void sys_evt_dispatch(uint32_t sys_evt)
 
 void Mesh_System_ValueChanged(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
 {
+  secure_meshchange(id, key, value, length);
 }
 
 /*

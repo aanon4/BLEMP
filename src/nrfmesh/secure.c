@@ -314,19 +314,22 @@ static uint8_t secure_selectkey(uint16_t ediv)
   return 0;
 }
 
-void secure_valuechanged(Mesh_Key key, uint8_t* value, uint8_t length)
+void secure_meshchange(Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
 {
-  for (Mesh_Key search = MESH_KEY_LTK_FIRST; memcmp(&search, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)); search.key++)
+  if (id == MESH_NODEID_GLOBAL)
   {
-    if (memcmp(&search, &key, sizeof(Mesh_Key)))
+    for (Mesh_Key search = MESH_KEY_LTK_FIRST; memcmp(&search, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)); search.key++)
     {
-      // If we set a LTK, we add a CLIENT neighbor so we'll attempt to sync changes to clients
-      Mesh_Neighbor* neighbor;
-      if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) == MESH_OK)
+      if (memcmp(&search, &key, sizeof(Mesh_Key)))
       {
-        neighbor->flag.valid = 1;
+        // If we set a LTK, we add a CLIENT neighbor so we'll attempt to sync changes to clients
+        Mesh_Neighbor* neighbor;
+        if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) == MESH_OK)
+        {
+          neighbor->flag.valid = 1;
+        }
+        break;
       }
-      break;
     }
   }
 }
