@@ -15,9 +15,4 @@ extern void secure_authenticate(uint16_t handle);
 extern void secure_ble_event(ble_evt_t* event);
 extern void secure_reset_bonds(void);
 
-#define MESH_SECURE_MAX_BONDS     4
-
-//#define MESH_KEY_LTK_FIRST        (MESH_KEY_INTERNAL + 0x10)
-//#define MESH_KEY_LTK_LAST         (MESH_KEY_LTK_FIRST + MESH_SECURE_MAX_BONDS)
-
 #endif /* NRFMESH_SECURE_H_ */

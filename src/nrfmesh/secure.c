@@ -78,13 +78,13 @@ static struct
 
 typedef struct
 {
-  uint8_t buf[sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN];
+  uint8_t buf[sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN + BLE_GAP_SEC_KEY_LEN];
 } secure_keytransfer;
 
 static const secure_keytransfer emptybuf;
 
 static uint8_t secure_havekeyspace(void);
-static uint8_t secure_newkey(ble_gap_enc_key_t* enc);
+static uint8_t secure_newkey(ble_gap_enc_key_t* enc, ble_gap_id_key_t* id);
 static uint8_t secure_selectkey(uint16_t ediv);
 
 static void secure_handler_irq(void* dummy)
@@ -227,7 +227,7 @@ void secure_ble_event(ble_evt_t* event)
     {
       if (event->evt.gap_evt.params.auth_status.bonded)
       {
-        secure_newkey(&secure_keys.p.enc);
+        secure_newkey(&secure_keys.p.enc, &secure_keys.c.id);
       }
     }
     break;
@@ -253,7 +253,7 @@ static uint8_t secure_havekeyspace(void)
   return 0;
 }
 
-static uint8_t secure_newkey(ble_gap_enc_key_t* enc)
+static uint8_t secure_newkey(ble_gap_enc_key_t* enc, ble_gap_id_key_t* id)
 {
   secure_keytransfer buf;
 
@@ -263,8 +263,12 @@ static uint8_t secure_newkey(ble_gap_enc_key_t* enc)
     Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
     if (status == MESH_NOTFOUND || (status == MESH_OK && length == sizeof(buf) && memcmp(buf.buf, emptybuf.buf, length) == 0))
     {
+      // ediv - used to identify the ltk for reconnections
       memcpy(buf.buf, &enc->master_id.ediv, sizeof(uint16_t));
+      // ltk - used to secure/auth reconnections
       memcpy(buf.buf + sizeof(uint16_t), enc->enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
+      // irk - used to resolve address of connecting "phone" when we connect to it
+      memcpy(buf.buf + sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN, id->id_info.irk, BLE_GAP_SEC_KEY_LEN);
       Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, sizeof(buf.buf));
       Mesh_Sync(&mesh_node);
       return 1;
