@@ -263,15 +263,29 @@ static uint8_t secure_newkey(ble_gap_enc_key_t* enc, ble_gap_id_key_t* id)
     Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
     if (status == MESH_NOTFOUND || (status == MESH_OK && length == sizeof(buf) && memcmp(buf.buf, emptybuf.buf, length) == 0))
     {
+      // Add the MESH_NODEID_CLIENT as a neighbor
+      Mesh_Neighbor* neighbor;
+      if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) != MESH_OK)
+      {
+        return 0;
+      }
+      neighbor->flag.valid = 1;
+
       // ediv - used to identify the ltk for reconnections
       memcpy(buf.buf, &enc->master_id.ediv, sizeof(uint16_t));
       // ltk - used to secure/auth reconnections
       memcpy(buf.buf + sizeof(uint16_t), enc->enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
       // irk - used to resolve address of connecting "phone" when we connect to it
       memcpy(buf.buf + sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN, id->id_info.irk, BLE_GAP_SEC_KEY_LEN);
-      Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, sizeof(buf.buf));
-      Mesh_Sync(&mesh_node);
-      return 1;
+      if (Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, sizeof(buf.buf)) == MESH_OK)
+      {
+        Mesh_Sync(&mesh_node);
+        return 1;
+      }
+      else
+      {
+        return 0;
+      }
     }
   }
 
@@ -284,7 +298,7 @@ static uint8_t secure_selectkey(uint16_t ediv)
 
   memset(secure_keys.p.enc.enc_info.ltk, 0, BLE_GAP_SEC_KEY_LEN);
 
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)); key.key++)
   {
     uint8_t length = sizeof(buf);
     if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length) == MESH_OK)
@@ -300,6 +314,23 @@ static uint8_t secure_selectkey(uint16_t ediv)
   return 0;
 }
 
+void secure_valuechanged(Mesh_Key key, uint8_t* value, uint8_t length)
+{
+  for (Mesh_Key search = MESH_KEY_LTK_FIRST; memcmp(&search, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)); search.key++)
+  {
+    if (memcmp(&search, &key, sizeof(Mesh_Key)))
+    {
+      // If we set a LTK, we add a CLIENT neighbor so we'll attempt to sync changes to clients
+      Mesh_Neighbor* neighbor;
+      if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) == MESH_OK)
+      {
+        neighbor->flag.valid = 1;
+      }
+      break;
+    }
+  }
+}
+
 void secure_reset_bonds(void)
 {
   for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
@@ -310,4 +341,19 @@ void secure_reset_bonds(void)
       Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, (uint8_t*)emptybuf.buf, sizeof(emptybuf.buf));
     }
   }
+}
+
+uint8_t secure_get_irks(ble_gap_irk_t irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT])
+{
+  secure_keytransfer buf;
+  uint8_t count = 0;
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) && count < BLE_GAP_WHITELIST_IRK_MAX_COUNT; key.key++)
+  {
+    uint8_t length = sizeof(buf);
+    if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length) == MESH_OK)
+    {
+      memcpy(irks[count++].irk, buf.buf + sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN, BLE_GAP_SEC_KEY_LEN);
+    }
+  }
+  return count;
 }

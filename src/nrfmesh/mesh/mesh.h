@@ -59,7 +59,7 @@
 // The maximum value size a value can be.
 //
 #if !defined(MESH_MAX_VALUE_SIZE)
-#define MESH_MAX_VALUE_SIZE           32
+#define MESH_MAX_VALUE_SIZE           64
 #endif
 
 //
@@ -88,6 +88,11 @@
 #define	MESH_MAX_RETRIES              16
 
 //
+// Limit the number of retries when connecting to clients (phones). Clients may be legitimately absent for a long time.
+//
+#define MESH_MAX_CLIENT_RETRIES       2
+
+//
 // Only tell neighbors about our other neighbors if they are reliable (have few retries).
 //
 #define MESH_NEIGHBOR_FORWARD_LIMIT   (MESH_MAX_RETRIES / 4)
@@ -96,7 +101,9 @@
 // Nodes periodically send keepalive messages. If nodes messages aren't seen after 2 sweeps the node
 // will be forgotten (assumed removed or failed).
 //
+#if !defined(MESH_KEEPALIVE_TIME)
 #define MESH_KEEPALIVE_TIME           (15 * 60)                     // 15 minutes
+#endif
 #define MESH_KEEPALIVE_SWEEP_TIME     (2 * MESH_KEEPALIVE_TIME)     // 30 minutes
 
 //
@@ -113,6 +120,8 @@ typedef unsigned char Mesh_NodeId;
 #define MESH_NODEID_INVALID           ((Mesh_NodeId)-1)
 #define MESH_NODEID_SELF              ((Mesh_NodeId)0)
 #define MESH_NODEID_GLOBAL            ((Mesh_NodeId)1)
+#define MESH_NODEID_CLIENT            ((Mesh_NodeId)2)
+#define MESH_NODEID_FIRST_AVAILABLE   ((Mesh_NodeId)3)
 
 typedef struct
 {
@@ -180,6 +189,13 @@ typedef struct Mesh_Neighbor
   Mesh_NodeId   id;
   unsigned char retries;
   Mesh_RSSI     rssi;
+  struct Mesh_NeighborFlags
+  {
+    unsigned char reset:1;        // neighbor is new
+    unsigned char valid:1;        // neighbor is valid
+    unsigned char retry:1;        // neighbor needs retry
+    unsigned char badrssi:1;      // neighbor candidate for removal
+  } flag;
   unsigned short handle;
 } Mesh_Neighbor;
 
@@ -222,14 +238,8 @@ typedef struct Mesh_Node
       unsigned char neighbor:1;     // inuse as a neighbor
       unsigned char ukv:1;          // inuse in a key/value
       unsigned char blacklisted:1;  // id has been blacklisted
-
       unsigned char ping:1;         // id seen recently
-
-      // These flags are only valid when 'neighbor' is set
-      unsigned char reset:1;        // neighbor is new
-      unsigned char valid:1;        // neighbor is valid
-      unsigned char retry:1;        // neighbor needs retry
-      unsigned char badrssi:1;      // neighbor candidate for removal
+      unsigned char client:1;       // id is associated with a bonded client not a mesh node
     } flag;
   }             ids[MESH_MAX_NODES];
 

@@ -20,6 +20,7 @@
 #define	CONNECT_SCAN_WINDOW			  MSEC_TO_UNITS(20, UNIT_0_625_MS)
 #define	CONNECT_TIMEOUT_FIXED		  2 // s
 #define	CONNECT_TIMEOUT_VARIABLE	1 // s
+#define CONNECT_TIMEOUT_CLIENT    5 // s
 #define	RSSI_THRESHOLD				    0
 #define	RSSI_SKIPCOUNT				    0
 

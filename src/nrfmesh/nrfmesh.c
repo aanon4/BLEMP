@@ -275,6 +275,11 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		STAT_TIMER_END(disconnecting_total_time_ms);
 		mesh_state.in_handle = BLE_CONN_HANDLE_INVALID;
 		mesh_state.out_handle = BLE_CONN_HANDLE_INVALID;
+		// The GATT in clients changes often so we cannot cache it
+		if (mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
+		{
+		  mesh_node.sync.neighbor->handle = BLE_CONN_HANDLE_INVALID;
+		}
 		Mesh_Process(&mesh_node, MESH_EVENT_DISCONNECTED, 0, 0);
 		break;
 
@@ -436,29 +441,62 @@ void Mesh_System_Connect(Mesh_Node* node)
 {
 	uint32_t err_code;
 
-	ble_gap_scan_params_t scan =
+  static const ble_gap_conn_params_t conn =
+  {
+    .min_conn_interval = MIN_CONN_INTERVAL,
+    .max_conn_interval = MAX_CONN_INTERVAL,
+    .slave_latency = SLAVE_LATENCY,
+    .conn_sup_timeout = CONN_SUP_TIMEOUT
+  };
+
+  STAT_RECORD_INC(connections_out_count);
+  STAT_TIMER_START(connections_out_total_time_ms);
+  STAT_TIMER_START(connecting_out_total_time_ms);
+
+	if (mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
 	{
-		.interval = CONNECT_SCAN_INTERVAL,
-		.window = CONNECT_SCAN_WINDOW,
-		.timeout = CONNECT_TIMEOUT_FIXED + CONNECT_TIMEOUT_VARIABLE * mesh_node.sync.neighbor->retries
-	};
-	static const ble_gap_conn_params_t conn =
+	  // For a "client" address, this is a proxy for all clients. We attempt to connect
+	  // to any of them using the whitelist because we don't know the actual address (just
+	  // the client's IRK).
+	  ble_gap_irk_t irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT];
+	  uint8_t irk_count = secure_get_irks(irks);
+	  ble_gap_irk_t* p_irks[irk_count];
+	  for (uint8_t i = irk_count; i--; )
+	  {
+	    p_irks[i] = &irks[i];
+	  }
+	  ble_gap_whitelist_t whitelist =
+	  {
+	    .pp_irks = p_irks,
+	    .irk_count = irk_count
+	  };
+	  ble_gap_scan_params_t scan =
+	  {
+      .interval = CONNECT_SCAN_INTERVAL,
+      .window = CONNECT_SCAN_WINDOW,
+      .timeout = CONNECT_TIMEOUT_CLIENT,
+      .selective = 1,
+      .p_whitelist = &whitelist
+	  };
+	  err_code = sd_ble_gap_connect(NULL, &scan, &conn);
+	  APP_ERROR_CHECK(err_code);
+	}
+	else
 	{
-	  .min_conn_interval = MIN_CONN_INTERVAL,
-	  .max_conn_interval = MAX_CONN_INTERVAL,
-	  .slave_latency = SLAVE_LATENCY,
-	  .conn_sup_timeout = CONN_SUP_TIMEOUT
-	};
-	ble_gap_addr_t addr =
-	{
-	  .addr_type = MESH_ADDRESS_TYPE
-	};
-	Mesh_System_memmove(&addr.addr, &mesh_node.ids[mesh_node.sync.neighbor->id].address, sizeof(Mesh_NodeAddress));
-	STAT_RECORD_INC(connections_out_count);
-	STAT_TIMER_START(connections_out_total_time_ms);
-	STAT_TIMER_START(connecting_out_total_time_ms);
-	err_code = sd_ble_gap_connect(&addr, &scan, &conn);
-	APP_ERROR_CHECK(err_code);
+    ble_gap_scan_params_t scan =
+    {
+      .interval = CONNECT_SCAN_INTERVAL,
+      .window = CONNECT_SCAN_WINDOW,
+      .timeout = CONNECT_TIMEOUT_FIXED + CONNECT_TIMEOUT_VARIABLE * mesh_node.sync.neighbor->retries
+    };
+    ble_gap_addr_t addr =
+    {
+      .addr_type = MESH_ADDRESS_TYPE
+    };
+    Mesh_System_memmove(&addr.addr, &mesh_node.ids[mesh_node.sync.neighbor->id].address, sizeof(Mesh_NodeAddress));
+    err_code = sd_ble_gap_connect(&addr, &scan, &conn);
+    APP_ERROR_CHECK(err_code);
+	}
 }
 
 void Mesh_System_Disconnect(Mesh_Node* node)
