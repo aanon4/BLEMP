@@ -1342,24 +1342,29 @@ Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space)
 //
 Mesh_Status Mesh_NodeReset(Mesh_Node* node, Mesh_NodeAddress* address)
 {
+  Mesh_System_memset(node, 0, sizeof(Mesh_Node));
+  node->state = MESH_STATE_IDLE;
+  node->sync.priority = MESH_NODEID_INVALID;
+
+  Mesh_InternNodeId(node, address, 1);
+  node->ids[MESH_NODEID_SELF].flag.ukv = 1; // Force SELF it always be in use
+
   static const Mesh_NodeAddress globalAddress =
   {
     .address = { 0, 0, 0, 0, 0, 0 }
   };
+  Mesh_InternNodeId(node, (Mesh_NodeAddress*)&globalAddress, 1);
+  node->ids[MESH_NODEID_GLOBAL].flag.ukv = 1; // Force GLOBAL always to be in use
+
+#if MESH_ENABLE_CLIENT_SUPPORT
   static const Mesh_NodeAddress clientAddress =
   {
     .address = { 1, 0, 0, 0, 0, 0 }
   };
-  Mesh_System_memset(node, 0, sizeof(Mesh_Node));
-  node->state = MESH_STATE_IDLE;
-  node->sync.priority = MESH_NODEID_INVALID;
-  Mesh_InternNodeId(node, address, 1);
-  node->ids[MESH_NODEID_SELF].flag.ukv = 1; // Force SELF it always be in use
-  Mesh_InternNodeId(node, (Mesh_NodeAddress*)&globalAddress, 1);
-  node->ids[MESH_NODEID_GLOBAL].flag.ukv = 1; // Force GLOBAL always to be in use
   Mesh_InternNodeId(node, (Mesh_NodeAddress*)&clientAddress, 1);
   node->ids[MESH_NODEID_CLIENT].flag.ukv = 1; // Force CLIENT always to be in use
   node->ids[MESH_NODEID_CLIENT].flag.client = 1;
+#endif
   return MESH_OK;
 }
 

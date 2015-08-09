@@ -78,6 +78,13 @@
 #endif
 
 //
+// Enable support for clients (e.g. phones) which are not part of the usual mesh
+//
+#if !defined(MESH_ENABLE_CLIENT_SUPPORT)
+#define MESH_ENABLE_CLIENT_SUPPORT           0
+#endif
+
+//
 // Limit the number of neighbor nodes to allow space for new nodes to join.
 //
 #define MESH_NEIGHBOR_LIMIT           (MESH_MAX_NEIGHBORS - 4)
@@ -90,7 +97,7 @@
 //
 // Limit the number of retries when connecting to clients (phones). Clients may be legitimately absent for a long time.
 //
-#define MESH_MAX_CLIENT_RETRIES       2
+#define MESH_MAX_CLIENT_RETRIES       4
 
 //
 // Only tell neighbors about our other neighbors if they are reliable (have few retries).

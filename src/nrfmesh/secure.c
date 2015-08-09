@@ -270,6 +270,7 @@ static uint8_t secure_newkey(ble_gap_enc_key_t* enc, ble_gap_id_key_t* id)
     Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
     if (status == MESH_NOTFOUND || (status == MESH_OK && length == sizeof(buf) && memcmp(buf.buf, emptybuf.buf, length) == 0))
     {
+#if MESH_ENABLE_CLIENT_SUPPORT
       // Add the MESH_NODEID_CLIENT as a neighbor
       Mesh_Neighbor* neighbor;
       if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) != MESH_OK)
@@ -277,6 +278,7 @@ static uint8_t secure_newkey(ble_gap_enc_key_t* enc, ble_gap_id_key_t* id)
         return 0;
       }
       neighbor->flag.valid = 1;
+#endif
 
       // ediv - used to identify the ltk for reconnections
       memcpy(buf.buf, &enc->master_id.ediv, sizeof(uint16_t));
@@ -323,6 +325,7 @@ static uint8_t secure_selectkey(uint16_t ediv)
 
 void secure_meshchange(Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
 {
+#if MESH_ENABLE_CLIENT_SUPPORT
   if (id == MESH_NODEID_GLOBAL)
   {
     for (Mesh_Key search = MESH_KEY_LTK_FIRST; memcmp(&search, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)); search.key++)
@@ -339,6 +342,7 @@ void secure_meshchange(Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t len
       }
     }
   }
+#endif
 }
 
 void secure_reset_bonds(void)
