@@ -15,7 +15,8 @@
 
 #define	SCAN_INTERVAL		 		      MSEC_TO_UNITS(20, UNIT_0_625_MS) // waz 100
 #define	SCAN_WINDOW		 	 		      MSEC_TO_UNITS(20, UNIT_0_625_MS) // waz 99
-#define	SCAN_TIMEOUT		 		      10 // s
+//#define	SCAN_TIMEOUT		 		      10 // s
+#define SCAN_TIMEOUT              (10 * APP_ADV_INTERVAL / 1000)
 #define	CONNECT_SCAN_INTERVAL		  MSEC_TO_UNITS(20, UNIT_0_625_MS)
 #define	CONNECT_SCAN_WINDOW			  MSEC_TO_UNITS(20, UNIT_0_625_MS)
 #define	CONNECT_TIMEOUT_FIXED		  2 // s
