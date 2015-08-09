@@ -70,7 +70,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           node->keepalive = 0;
           for (Mesh_NodeId id = 2; id < MESH_MAX_NODES; id++)
           {
-            if (!node->ids[id].flag.ping)
+            if (!node->ids[id].flag.ping && !node->ids[id].flag.client)
             {
               Mesh_ForgetNodeId(node, id);
             }
@@ -153,7 +153,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 #endif
         {
         lookforsync:;
-          Mesh_ChangeBits changes = Mesh_GetChangeBits(node);
+          node->sync.remainingbits = Mesh_GetChangeBits(node);
           unsigned char count = MESH_MAX_NEIGHBORS;
           // If we have a set connection priority, we do that first
           if (node->sync.priority == MESH_NODEID_INVALID || Mesh_FindNeighbor(node, node->sync.priority, &node->sync.neighbor) != MESH_OK)
@@ -164,7 +164,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 
           for (; count; count--)
           {
-            if (!node->sync.neighbor->flag.retry && node->sync.neighbor->flag.valid && (changes & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
+            if (!node->sync.neighbor->flag.retry && node->sync.neighbor->flag.valid && (node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
             {
               // Found one
               node->state = MESH_STATE_SYNCMASTERCONNECTING;
@@ -231,6 +231,18 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
               {
                 neighbor->flag.retry = 0;
                 neighbor->retries = 0;
+                node->ids[neighbor->id].flag.ping = 0;
+                // Remove ukv from the changebits
+                Mesh_ChangeBits unmask = ~MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor);
+                Mesh_UKV* ukv = node->values.values;
+                for (unsigned short count = node->values.count; count; count--, ukv++)
+                {
+                  ukv->changebits &= unmask;
+                }
+              }
+              else
+              {
+                goto checkretry;
               }
             }
             else if (neighbor->retries >= MESH_MAX_RETRIES)
@@ -332,7 +344,14 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         goto mastersyncdone;
 
       case MESH_EVENT_WROTE:
-        Mesh_System_Read(node);
+        if (node->ids[node->sync.neighbor->id].flag.client)
+        {
+          goto mastersyncdone;
+        }
+        else
+        {
+          Mesh_System_Read(node);
+        }
         break;
 
       default:
@@ -478,7 +497,8 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                     {
                       node->sync.changebits &= ~MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor);
                       // Only eliminate connections on a peripheral, not a master
-                      if (node->state == MESH_STATE_SYNCPERIPHERALREADING && node->neighbors.count > MESH_NEIGHBOR_LIMIT)
+                      // Never eliminate client nodes
+                      if (node->state == MESH_STATE_SYNCPERIPHERALREADING && node->neighbors.count > MESH_NEIGHBOR_LIMIT && !node->ids[id].flag.client)
                       {
                         Mesh_RSSI nrssi = (Mesh_RSSI)node->sync.buffer[pos + sizeof(Mesh_NodeAddress)];
                         if (nrssi >= neighbor->rssi)
@@ -606,7 +626,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           }
           else if (node->sync.activeneighbors)
           {
-            if (node->sync.neighbor != node->sync.activeneighbors && node->sync.activeneighbors->flag.valid && node->sync.activeneighbors->retries < MESH_NEIGHBOR_FORWARD_LIMIT)
+            if (node->sync.neighbor != node->sync.activeneighbors && node->sync.activeneighbors->flag.valid && node->ids[node->sync.activeneighbors->id].flag.ping && (
+              (!node->ids[node->sync.activeneighbors->id].flag.client && node->sync.activeneighbors->retries < MESH_NEIGHBOR_FORWARD_LIMIT) ||
+              !(node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.activeneighbors))
+            ))
             {
               if (pos + 1 + sizeof(Mesh_NodeAddress) + sizeof(Mesh_RSSI) > MESH_MAX_WRITE_SIZE)
               {

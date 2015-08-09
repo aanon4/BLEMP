@@ -278,7 +278,7 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		// The GATT in clients changes often so we cannot cache it
 		if (mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
 		{
-		  mesh_node.sync.neighbor->handle = BLE_CONN_HANDLE_INVALID;
+		  mesh_node.sync.neighbor->handle = 0;
 		}
 		Mesh_Process(&mesh_node, MESH_EVENT_DISCONNECTED, 0, 0);
 		break;

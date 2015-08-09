@@ -163,8 +163,15 @@ void secure_authenticate(uint16_t handle)
 {
   uint32_t err_code;
 
-  err_code = sd_ble_gap_authenticate(handle, &secure_state.mesh_auth);
-  APP_ERROR_CHECK(err_code);
+  if (mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
+  {
+    Mesh_Process(&mesh_node, MESH_EVENT_CONNECTED, 0, 0);
+  }
+  else
+  {
+    err_code = sd_ble_gap_authenticate(handle, &secure_state.mesh_auth);
+    APP_ERROR_CHECK(err_code);
+  }
 }
 
 void secure_ble_event(ble_evt_t* event)

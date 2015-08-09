@@ -272,6 +272,7 @@ typedef struct Mesh_Node
     Mesh_NodeId     priority;
     Mesh_ChangeBits neighborchangebit;
     Mesh_ChangeBits changebits;
+    Mesh_ChangeBits remainingbits;
     Mesh_UKV*       ukv;
     unsigned short  count;
     unsigned char   buffer[MESH_BUFFER_SIZE];
