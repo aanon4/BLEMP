@@ -626,9 +626,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           }
           else if (node->sync.activeneighbors)
           {
-            if (node->sync.neighbor != node->sync.activeneighbors && node->sync.activeneighbors->flag.valid && node->ids[node->sync.activeneighbors->id].flag.ping && (
-              (!node->ids[node->sync.activeneighbors->id].flag.client && node->sync.activeneighbors->retries < MESH_NEIGHBOR_FORWARD_LIMIT) ||
-              !(node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.activeneighbors))
+            Mesh_NodeId nid = node->sync.activeneighbors->id;
+            if (node->sync.neighbor != node->sync.activeneighbors && node->sync.activeneighbors->flag.valid && (
+              (!node->ids[nid].flag.client && node->sync.activeneighbors->retries < MESH_NEIGHBOR_FORWARD_LIMIT) ||
+              ( node->ids[nid].flag.client && node->ids[nid].flag.ping && !(node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.activeneighbors)))
             ))
             {
               if (pos + 1 + sizeof(Mesh_NodeAddress) + sizeof(Mesh_RSSI) > MESH_MAX_WRITE_SIZE)
@@ -636,7 +637,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 break;
               }
               node->sync.buffer[pos++] = MESH_PAYLOADNEIGHBORS;
-              Mesh_System_memmove(&node->sync.buffer[pos], &node->ids[node->sync.activeneighbors->id].address, sizeof(Mesh_NodeAddress));
+              Mesh_System_memmove(&node->sync.buffer[pos], &node->ids[nid].address, sizeof(Mesh_NodeAddress));
               // When a peripheral sends it neighbors, we cannot use them to eliminate links on the master. To prevent this we set
               // the rssi to be the worst it can be. Also, if the neighbor is flagged as having a badrssi, we may eliminate it later on. Since we are still
               // forwarding data to it now we send it over the the connected node, but flag the RSSI to be the worst possible so the connected node wont
