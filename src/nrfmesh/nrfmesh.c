@@ -487,7 +487,7 @@ void Mesh_System_Connect(Mesh_Node* node)
     {
       .interval = CONNECT_SCAN_INTERVAL,
       .window = CONNECT_SCAN_WINDOW,
-      .timeout = CONNECT_TIMEOUT_FIXED + CONNECT_TIMEOUT_VARIABLE * mesh_node.sync.neighbor->retries
+      .timeout = CONNECT_TIMEOUT_FIXED
     };
     ble_gap_addr_t addr =
     {
