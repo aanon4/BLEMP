@@ -8,6 +8,8 @@
 #include <ble.h>
 #include <app_error.h>
 
+#include "mesh/mesh.h"
+
 #include "uuids.h"
 
 uint16_t primary_service_handle;
@@ -32,7 +34,7 @@ void uuids_init(void)
 	static const ble_uuid_t service_uuid =
 	{
 		.type = UUIDS_BASE_TYPE,
-		.uuid = UUIDS_SERVICE_UUID
+		.uuid = MESH_SERVICE_UUID
 	};
 	err_code = sd_ble_gatts_service_add(BLE_GATTS_SRVC_TYPE_PRIMARY, &service_uuid, &primary_service_handle);
 	APP_ERROR_CHECK(err_code);
