@@ -68,7 +68,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         {
           // Forget nodes we've not heard from in a long time (skip SELF and GLOBAL)
           node->keepalive = 0;
-          for (Mesh_NodeId id = 2; id < MESH_MAX_NODES; id++)
+          for (Mesh_NodeId id = MESH_NODEID_FIRST_AVAILABLE; id < MESH_MAX_NODES; id++)
           {
             if (!node->ids[id].flag.ping && !node->ids[id].flag.client)
             {

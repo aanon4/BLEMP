@@ -134,8 +134,12 @@ typedef unsigned char Mesh_NodeId;
 #define MESH_NODEID_INVALID           ((Mesh_NodeId)-1)
 #define MESH_NODEID_SELF              ((Mesh_NodeId)0)
 #define MESH_NODEID_GLOBAL            ((Mesh_NodeId)1)
+#if MESH_ENABLE_CLIENT_SUPPORT
 #define MESH_NODEID_CLIENT            ((Mesh_NodeId)2)
 #define MESH_NODEID_FIRST_AVAILABLE   ((Mesh_NodeId)3)
+#else
+#define MESH_NODEID_FIRST_AVAILABLE   ((Mesh_NodeId)2)
+#endif
 
 typedef struct
 {

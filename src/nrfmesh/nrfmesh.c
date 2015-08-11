@@ -410,7 +410,10 @@ static void retry_handler(void* dummy, uint16_t size)
 
 static void retry_handler_irq(void* dummy)
 {
-	app_sched_event_put(NULL, 0, retry_handler);
+  uint32_t err_code;
+
+	err_code = app_sched_event_put(NULL, 0, retry_handler);
+	APP_ERROR_CHECK(err_code);
 }
 
 void Mesh_System_MasterMode(Mesh_Node* node)
