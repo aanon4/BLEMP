@@ -1066,18 +1066,27 @@ Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsign
       // Found a matching id/key. Now determine if we need to update the value
       unsigned char* ptr = MESH_UKV_VALUE(current);
       Mesh_Version verdiff = version - current->version;
-      signed char valdiff = Mesh_System_memcmp(ptr, value, current->length);
+      unsigned char vlength;
+      if (length > current->length)
+      {
+        vlength = current->length;
+      }
+      else
+      {
+        vlength = length;
+      }
+      signed char valdiff = Mesh_System_memcmp(ptr, value, vlength);
       if ((verdiff != 0 && verdiff < MESH_VERSION_DIFF) || (verdiff == 0 && valdiff < 0))
       {
         // New version or same version but "bigger" value - update
         current->version = version;
-        Mesh_System_memmove(ptr, value, current->length);
+        Mesh_System_memmove(ptr, value, vlength);
         current->changebits = changebits;
         return MESH_CHANGE;
       }
-      if (verdiff == 0 && valdiff == 0)
+      if (verdiff == 0 && valdiff == 0 && length == current->length)
       {
-        // Version and value is identical. Remove any changebits we no longer need to sync
+        // Version and value are identical. Remove any changebits we no longer need to sync
         current->changebits &= changebits;
       }
       return MESH_NOCHANGE;
