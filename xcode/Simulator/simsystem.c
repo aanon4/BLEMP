@@ -155,7 +155,8 @@ void Mesh_System_Retry(Mesh_Node* node, unsigned short retrycount)
   assert(q->connection == NULL);
   assert(q->ismaster == 0);
   assert(q->event == MESH_EVENT_NULL);
-  q->retry = 1 + Mesh_System_RandomNumber(retrycount * 8);
+  Mesh_System_RandomNumber(&q->retry, sizeof(q->retry));
+  q->retry = 1 + q->retry % (retrycount * 8);
 }
 
 void Mesh_System_ScheduleDiscovery(Mesh_Node* node)
@@ -179,8 +180,11 @@ Mesh_Tick Mesh_System_Tick(void)
   return (Mesh_Tick)time(NULL);
 }
 
-unsigned short Mesh_System_RandomNumber(unsigned short limit)
+void Mesh_System_RandomNumber(unsigned char* buffer, unsigned char length)
 {
-  return (unsigned short)(random() % limit);
+  while (length--)
+  {
+    *buffer++ = (unsigned char)random();
+  }
 }
 

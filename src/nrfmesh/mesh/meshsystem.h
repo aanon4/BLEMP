@@ -54,7 +54,7 @@ extern void Mesh_System_ValueChanged(Mesh_Node* node, Mesh_NodeId id, Mesh_Key k
 extern void Mesh_System_Retry(Mesh_Node* node, unsigned short retrycount);
 extern void Mesh_System_ScheduleDiscovery(Mesh_Node* node);
 extern Mesh_Tick Mesh_System_Tick(void);
-extern unsigned short Mesh_System_RandomNumber(unsigned short limit);
+extern void Mesh_System_RandomNumber(unsigned char* buffer, unsigned char length);
 #if ENABLE_MESH_MALLOC
 #if !defined(Mesh_System_Malloc)
 extern unsigned char* Mesh_System_Malloc(unsigned short length);

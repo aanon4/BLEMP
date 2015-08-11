@@ -9,6 +9,7 @@
 #define NRF51MESH_H_
 
 #include "mesh/mesh.h"
+#include "mesh/meshsystem.h"
 
 #define	RETRY_FIXED			 		      50 // ms
 #define	RETRY_VARIABLE		 		    50 // ms

@@ -14,7 +14,7 @@
 typedef struct Sim_Q
 {
   char          ismaster;
-  char          retry;
+  unsigned char retry;
   Mesh_Node*    connection;
   Mesh_Event    event;
   unsigned char arg;

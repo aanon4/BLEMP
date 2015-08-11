@@ -563,13 +563,22 @@ Mesh_Tick Mesh_System_Tick(void)
 	return (Mesh_Tick)(ticks / 1000); // Tick in seconds
 }
 
-unsigned short Mesh_System_RandomNumber(unsigned short limit)
+void Mesh_System_RandomNumber(unsigned char* buffer, unsigned char length)
 {
-	uint32_t err_code;
+  uint32_t err_code;
 
-	uint16_t random;
-	err_code = sd_rand_application_vector_get((uint8_t*)&random, sizeof(random));
-	APP_ERROR_CHECK(err_code);
-
-	return random % limit;
+  while (length)
+  {
+    uint8_t available = 0;
+    err_code = sd_rand_application_bytes_available_get(&available);
+    APP_ERROR_CHECK(err_code);
+    if (available)
+    {
+      available = available < length ? available : length;
+      err_code = sd_rand_application_vector_get(buffer, available);
+      APP_ERROR_CHECK(err_code);
+      buffer += available;
+      length -= available;
+    }
+  }
 }

@@ -158,7 +158,9 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           // If we have a set connection priority, we do that first
           if (node->sync.priority == MESH_NODEID_INVALID || Mesh_FindNeighbor(node, node->sync.priority, &node->sync.neighbor) != MESH_OK)
           {
-            node->sync.neighbor = &node->neighbors.neighbors[Mesh_System_RandomNumber(MESH_MAX_NEIGHBORS)];
+            unsigned char random = 0;
+            Mesh_System_RandomNumber(&random, sizeof(random));
+            node->sync.neighbor = &node->neighbors.neighbors[random % MESH_MAX_NEIGHBORS];
           }
           node->sync.priority = MESH_NODEID_INVALID;
 
