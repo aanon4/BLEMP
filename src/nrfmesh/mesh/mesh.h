@@ -121,6 +121,14 @@
 #define MESH_KEEPALIVE_SWEEP_TIME     (2 * MESH_KEEPALIVE_TIME)     // 30 minutes
 
 //
+// Define the Mesh security level.
+// Mesh is open by default.
+//
+#if !defined(MESH_SECURITY_LEVEL)
+#define MESH_SECURITY_LEVEL           1
+#endif
+
+//
 // Standard BLE sizes
 //
 #define MESH_NODEADDRESS_SIZE          6  // MAC address

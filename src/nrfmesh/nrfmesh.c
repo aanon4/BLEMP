@@ -56,8 +56,8 @@ void nrfmesh_init(void)
 	// Add Mesh service
 	static const ble_gatts_attr_md_t metadata =
 	{
-		.read_perm = { 1, 3 },
-		.write_perm = { 1, 3 },
+		.read_perm = { 1, MESH_SECURITY_LEVEL },
+		.write_perm = { 1, MESH_SECURITY_LEVEL },
 		.rd_auth = 1,
 		.wr_auth = 1,
 		.vlen = 1,
