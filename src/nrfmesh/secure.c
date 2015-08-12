@@ -141,19 +141,23 @@ void secure_set_keys(uint8_t* oob, uint8_t* irk)
   uint32_t err_code;
 
   memcpy(secure_state.oob, oob, BLE_GAP_SEC_KEY_LEN);
-  memcpy(secure_keys.p.id.id_info.irk, irk, BLE_GAP_SEC_KEY_LEN);
-
-  // Setup a resolvable private address based on the IRK but which doesn't change over time
-  ble_opt_t opt =
+  if (irk != NULL)
   {
-      .gap_opt.privacy = { &secure_keys.p.id.id_info, 0 }
-  };
-  err_code = sd_ble_opt_set(BLE_GAP_OPT_PRIVACY, &opt);
-  APP_ERROR_CHECK(err_code);
+    // Setup a resolvable private address based on the specified IRK
+    memcpy(secure_keys.p.id.id_info.irk, irk, BLE_GAP_SEC_KEY_LEN);
 
-  secure_keys.p.id.id_addr_info.addr_type = BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE;
-  err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_AUTO, &secure_keys.p.id.id_addr_info);
-  APP_ERROR_CHECK(err_code);
+    ble_opt_t opt =
+    {
+        .gap_opt.privacy = { &secure_keys.p.id.id_info, 0 }
+    };
+    err_code = sd_ble_opt_set(BLE_GAP_OPT_PRIVACY, &opt);
+    APP_ERROR_CHECK(err_code);
+
+    // Create new private address. This doesn't change
+    secure_keys.p.id.id_addr_info.addr_type = BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE;
+    err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_AUTO, &secure_keys.p.id.id_addr_info);
+    APP_ERROR_CHECK(err_code);
+  }
 
   err_code = sd_ble_gap_address_get(&secure_keys.p.id.id_addr_info);
   APP_ERROR_CHECK(err_code);
@@ -370,4 +374,9 @@ uint8_t secure_get_irks(ble_gap_irk_t irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT])
     }
   }
   return count;
+}
+
+uint8_t secure_address_type(void)
+{
+  return secure_keys.p.id.id_addr_info.addr_type;
 }
