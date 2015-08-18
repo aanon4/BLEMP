@@ -281,18 +281,16 @@ void secure_ble_event(ble_evt_t* event)
     {
       switch (mesh_node.state)
       {
-      case MESH_STATE_IDLE:
-        secure_state.role = event->evt.gap_evt.params.connected.role;
-        break;
-
       case MESH_STATE_CLIENT_STARTING:
       case MESH_STATE_CLIENT_WAITING:
       case MESH_STATE_CLIENT_CONNECTED:
-      default:
         // In client mode - just disconnect
         err_code = sd_ble_gap_disconnect(event->evt.gap_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
         APP_ERROR_CHECK(err_code);
         event->header.evt_id = BLE_EVT_INVALID;
+        break;
+
+      default:
         break;
       }
     }
