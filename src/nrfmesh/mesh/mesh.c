@@ -404,7 +404,8 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         node->sync.neighbor->retries = 0;
         node->sync.id = MESH_NODEID_INVALID;
         node->sync.ukv = node->values.values;
-        node->sync.activeneighbors = &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
+        // Don't send neighbor info to client (they don't use it)
+        node->sync.activeneighbors = node->ids[node->sync.neighbor->id].flag.client ? NULL : &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
         node->sync.count = node->values.count;
         node->sync.value.key = MESH_KEY_INVALID;
         goto writing;
