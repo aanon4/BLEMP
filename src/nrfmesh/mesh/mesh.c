@@ -70,9 +70,12 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           node->keepalive = 0;
           for (Mesh_NodeId id = MESH_NODEID_FIRST_AVAILABLE; id < MESH_MAX_NODES; id++)
           {
-            if (!node->ids[id].flag.ping && !node->ids[id].flag.client)
+            if (!node->ids[id].flag.ping)
             {
-              Mesh_ForgetNodeId(node, id);
+              if (!node->ids[id].flag.client)
+              {
+                Mesh_ForgetNodeId(node, id);
+              }
             }
             else
             {
@@ -95,6 +98,11 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           node->state = MESH_STATE_SWITCHTOMASTER;
           Mesh_System_MasterMode(node);
         }
+        break;
+
+      case MESH_EVENT_CLIENT_START:
+        // Switch mesh to client mode. This prevents any activity while a non-mesh client is connected
+        node->state = MESH_STATE_CLIENT_STARTING;
         break;
 
       case MESH_EVENT_INCOMINGCONNECTION:
@@ -133,6 +141,57 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         break;
 
       default:
+        break;
+    }
+    break;
+
+  case MESH_STATE_CLIENT_STARTING:
+    switch (event)
+    {
+      case MESH_EVENT_CLIENT_TIMEOUT:
+        node->state = MESH_STATE_IDLE;
+        Mesh_System_PeripheralDone(node);
+        break;
+
+      case MESH_EVENT_DISCONNECTED:
+        node->state = MESH_STATE_CLIENT_WAITING;
+        Mesh_System_PeripheralDone(node);
+        break;
+
+      default:
+        status = MESH_BADSTATE;
+        break;
+    }
+    break;
+
+  case MESH_STATE_CLIENT_WAITING:
+    switch (event)
+    {
+      case MESH_EVENT_CLIENT_TIMEOUT:
+        node->state = MESH_STATE_IDLE;
+        Mesh_System_PeripheralDone(node);
+        break;
+
+      case MESH_EVENT_INCOMINGCONNECTION:
+        node->state = MESH_STATE_CLIENT_CONNECTED;
+        break;
+
+      default:
+        status = MESH_BADSTATE;
+        break;
+    }
+    break;
+
+  case MESH_STATE_CLIENT_CONNECTED:
+    switch (event)
+    {
+      case MESH_EVENT_DISCONNECTED:
+        Mesh_System_PeripheralDone(node);
+        node->state = MESH_STATE_IDLE;
+        break;
+
+      default:
+        status = MESH_BADSTATE;
         break;
     }
     break;
@@ -225,7 +284,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           if (neighbor->id)
           {
             // Forget neighbors which we can no longer reach.
-
             if (node->ids[neighbor->id].flag.client)
             {
               // We don't forget clients and ignore failures (they can be absent).
@@ -946,6 +1004,11 @@ Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key,
   node->ids[id].flag.ukv = 1;
 dosync:;
   Mesh_System_memmove(MESH_UKV_VALUE(values), value, length);
+  // We only sync notify keys to clients
+  if (!key.notify)
+  {
+    changebits &= ~node->neighbors.clientbits;
+  }
   values->changebits = changebits;
   return MESH_OK;
 }
@@ -1081,6 +1144,11 @@ Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsign
         // New version or same version but "bigger" value - update
         current->version = version;
         Mesh_System_memmove(ptr, value, vlength);
+        // We only sync notify keys to clients
+        if (!key.notify)
+        {
+          changebits &= ~node->neighbors.clientbits;
+        }
         current->changebits = changebits;
         return MESH_CHANGE;
       }
@@ -1153,6 +1221,11 @@ Mesh_Status Mesh_AddNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** ne
   node->ids[id].flag.neighbor = 1;
   node->neighbors.count++;
   
+  if (node->ids[id].flag.client)
+  {
+    node->neighbors.clientbits |= bit;
+  }
+
   *neighbor = current;
   
   return MESH_OK;
@@ -1367,7 +1440,6 @@ Mesh_Status Mesh_NodeReset(Mesh_Node* node, Mesh_NodeAddress* address)
   Mesh_InternNodeId(node, (Mesh_NodeAddress*)&globalAddress, 1);
   node->ids[MESH_NODEID_GLOBAL].flag.ukv = 1; // Force GLOBAL always to be in use
 
-#if MESH_ENABLE_CLIENT_SUPPORT
   static const Mesh_NodeAddress clientAddress =
   {
     .address = { 1, 0, 0, 0, 0, 0 }
@@ -1375,7 +1447,7 @@ Mesh_Status Mesh_NodeReset(Mesh_Node* node, Mesh_NodeAddress* address)
   Mesh_InternNodeId(node, (Mesh_NodeAddress*)&clientAddress, 1);
   node->ids[MESH_NODEID_CLIENT].flag.ukv = 1; // Force CLIENT always to be in use
   node->ids[MESH_NODEID_CLIENT].flag.client = 1;
-#endif
+
   return MESH_OK;
 }
 

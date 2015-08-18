@@ -57,8 +57,7 @@ void meshkeepalive_init(void)
 #if defined(TESTING_KEEPALIVE)
 	static const ble_gatts_attr_md_t metadata =
 	{
-		.read_perm = { 1, 1 },
-		.write_perm = { 1, 1 },
+		.read_perm = { 1, 2 },
 		.rd_auth = 1,
 		.wr_auth = 1,
 		.vlen = 1,

@@ -29,8 +29,7 @@ void statistics_init(void)
 
 	static const ble_gatts_attr_md_t metadata =
 	{
-		.read_perm = { 1, 1 },
-		.write_perm = { 1, 1 },
+		.read_perm = { 1, 2 },
 		.vlen = 1,
 		.vloc = BLE_GATTS_VLOC_USER
 	};

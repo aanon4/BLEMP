@@ -17,11 +17,11 @@
 #include "mesh/mesh.h"
 #include "mesh/meshsystem.h"
 
-#include "services/advertising.h"
 #include "services/gap.h"
 #include "services/timer.h"
 
 #include "uuids.h"
+#include "advertising.h"
 #include "nrfmesh.h"
 #include "secure.h"
 #include "keepalive.h"
@@ -56,8 +56,8 @@ void nrfmesh_init(void)
 	// Add Mesh service
 	static const ble_gatts_attr_md_t metadata =
 	{
-		.read_perm = { 1, MESH_SECURITY_LEVEL },
-		.write_perm = { 1, MESH_SECURITY_LEVEL },
+		.read_perm = { 1, 3 },
+		.write_perm = { 1, 3 },
 		.rd_auth = 1,
 		.wr_auth = 1,
 		.vlen = 1,
@@ -150,7 +150,7 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		0x02, BLE_GAP_AD_TYPE_FLAGS, BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE,
 		0x1A, BLE_GAP_AD_TYPE_MANUFACTURER_SPECIFIC_DATA, 0x4C, 0x00,
 		0x02, 0x15,
-		MESH_UUID
+		REVERSE_UUID(MESH_SERVICE_BASE_UUID)
 	};
 
 	uint32_t err_code;
@@ -160,13 +160,13 @@ void nrfmesh_ble_event(ble_evt_t* event)
 	switch (event->header.evt_id)
 	{
 	case BLE_GAP_EVT_ADV_REPORT:
-		if (event->evt.gap_evt.params.adv_report.peer_addr.addr_type == secure_address_type() && event->evt.gap_evt.params.adv_report.dlen >= sizeof(advert) && Mesh_System_memcmp(advert, event->evt.gap_evt.params.adv_report.data, sizeof(advert)) == 0)
-		{
-			uint8_t id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.adv_report.peer_addr.addr, 1);
-			if (id != MESH_NODEID_SELF)
-			{
-				Mesh_Process(&mesh_node, MESH_EVENT_NEIGHBOR_DISCOVER, id, (uint32_t)(int32_t)event->evt.gap_evt.params.adv_report.rssi);
-			}
+		if (event->evt.gap_evt.params.adv_report.peer_addr.addr_type == BLE_GAP_ADDR_TYPE_RANDOM_STATIC && event->evt.gap_evt.params.adv_report.dlen >= sizeof(advert) && Mesh_System_memcmp(advert, event->evt.gap_evt.params.adv_report.data, sizeof(advert)) == 0)
+    {
+      Mesh_NodeId id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.adv_report.peer_addr.addr, 1);
+      if (id != MESH_NODEID_SELF)
+      {
+        Mesh_Process(&mesh_node, MESH_EVENT_NEIGHBOR_DISCOVER, id, (uint32_t)(int32_t)event->evt.gap_evt.params.adv_report.rssi);
+      }
 		}
 		break;
 
@@ -197,14 +197,14 @@ void nrfmesh_ble_event(ble_evt_t* event)
 #endif
 		if (event->evt.gap_evt.params.connected.role == BLE_GAP_ROLE_PERIPH)
 		{
-			mesh_state.in_handle = event->evt.gap_evt.conn_handle;
-			STAT_RECORD_INC(connections_in_success_count);
-			STAT_TIMER_START(connections_in_total_time_ms);
-			err_code = app_timer_stop(mesh_state.timer);
-			APP_ERROR_CHECK(err_code);
-			Mesh_Process(&mesh_node, MESH_EVENT_INCOMINGCONNECTION, Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 1), 0);
-	    err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
-	    APP_ERROR_CHECK(err_code);
+		  mesh_state.in_handle = event->evt.gap_evt.conn_handle;
+      STAT_RECORD_INC(connections_in_success_count);
+      STAT_TIMER_START(connections_in_total_time_ms);
+      err_code = app_timer_stop(mesh_state.timer);
+      APP_ERROR_CHECK(err_code);
+      Mesh_Process(&mesh_node, MESH_EVENT_INCOMINGCONNECTION, Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 1), 0);
+      err_code = sd_ble_gap_rssi_start(event->evt.gap_evt.conn_handle, RSSI_THRESHOLD, RSSI_SKIPCOUNT);
+      APP_ERROR_CHECK(err_code);
 		}
 		else
 		{
@@ -261,7 +261,10 @@ void nrfmesh_ble_event(ble_evt_t* event)
 				// Mesh service not available
 				STAT_RECORD_INC(invalid_node_count);
 				STAT_TIMER_END(discover_total_time_ms);
-				Mesh_Process(&mesh_node, MESH_EVENT_INVALIDNODE, 0, 0);
+				if (!mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
+				{
+				  Mesh_Process(&mesh_node, MESH_EVENT_INVALIDNODE, 0, 0);
+				}
 			}
 		}
 		break;
@@ -492,7 +495,7 @@ void Mesh_System_Connect(Mesh_Node* node)
     };
     ble_gap_addr_t addr =
     {
-      .addr_type = secure_address_type()
+      .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC
     };
     Mesh_System_memmove(&addr.addr, &mesh_node.ids[mesh_node.sync.neighbor->id].address, sizeof(Mesh_NodeAddress));
     err_code = sd_ble_gap_connect(&addr, &scan, &conn);

@@ -13,11 +13,20 @@
 #include <ble_gap.h>
 #include <ble_hci.h>
 #include <app_error.h>
+#include <app_scheduler.h>
+#include <nrf_soc.h>
 
 #include "services/timer.h"
 
+#include "advertising.h"
 #include "nrfmesh.h"
 #include "secure.h"
+
+typedef enum
+{
+  SECURE_ADDR_MESH,
+  SECURE_ADDR_ENDPOINT
+} secure_addr_type;
 
 static const Mesh_Key MESH_KEY_LTK_FIRST = _MESH_KEY_LTK_FIRST;
 static const Mesh_Key MESH_KEY_LTK_LAST  = _MESH_KEY_LTK_LAST;
@@ -38,6 +47,10 @@ static struct
 
 static struct
 {
+  secure_addr_type      addr_type;
+  ble_gap_addr_t        mesh_addr;
+  ble_gap_addr_t        endpoint_addr;
+  app_timer_id_t        addr_timer;
   ble_gap_sec_params_t  periph_auth;
   ble_gap_sec_params_t  mesh_auth;
   ble_gap_sec_keyset_t  keyset;
@@ -47,49 +60,75 @@ static struct
   uint8_t               pairing;
 } secure_state =
 {
-    .periph_auth =
-    {
-        .bond = 1,
-        .mitm = 1,
-        .io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY,
-        .oob = 1,
-        .min_key_size = 16,
-        .max_key_size = 16,
-        .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
-        .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
-    },
-    .mesh_auth =
-    {
-        .bond = 0,
-        .mitm = 1,
-        .io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY,
-        .oob = 1,
-        .min_key_size = 16,
-        .max_key_size = 16,
-        .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
-        .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
-    },
-    .keyset =
-    {
-        .keys_periph = { &secure_keys.p.enc, NULL, NULL },
-        .keys_central = { &secure_keys.c.enc, &secure_keys.c.id, NULL }
-    },
+  .addr_type = -1,
+  .endpoint_addr =
+  {
+    .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
+    .addr = { 1, 2, 3, 4, 5, 6 | 0xC0 }
+  },
+  .periph_auth =
+  {
+    .bond = 1,
+    .mitm = 1,
+    .io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY,
+    .oob = 1,
+    .min_key_size = 16,
+    .max_key_size = 16,
+    .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
+    .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
+  },
+  .mesh_auth =
+  {
+    .bond = 0,
+    .mitm = 1,
+    .io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY,
+    .oob = 1,
+    .min_key_size = 16,
+    .max_key_size = 16,
+    .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
+    .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
+  },
+  .keyset =
+  {
+    .keys_periph = { &secure_keys.p.enc, NULL, NULL },
+    .keys_central = { &secure_keys.c.enc, &secure_keys.c.id, NULL }
+  },
 };
 
 typedef struct
 {
-  uint8_t buf[sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN + BLE_GAP_SEC_KEY_LEN];
+  uint8_t ediv[2];
+  uint8_t ltk[BLE_GAP_SEC_KEY_LEN];
+  uint8_t irk[BLE_GAP_SEC_KEY_LEN];
 } secure_keytransfer;
+
+
+#define SECURE_ADDRESS_SWITCH_TIMEOUT   (15 * 1000) // ms
 
 static const secure_keytransfer emptybuf;
 
-static uint8_t secure_havekeyspace(void);
 static uint8_t secure_newkey(ble_gap_enc_key_t* enc, ble_gap_id_key_t* id);
 static uint8_t secure_selectkey(uint16_t ediv);
+static uint8_t secure_check_irk_address(ble_gap_addr_t* address);
+static void secure_set_address(secure_addr_type type);
 
 static void secure_handler_irq(void* dummy)
 {
   secure_state.pairing = 0;
+}
+
+static void secure_handler_addr(void* dummy, uint16_t size)
+{
+  secure_set_address(SECURE_ADDR_MESH);
+  Mesh_Process(&mesh_node, MESH_EVENT_CLIENT_TIMEOUT, 0, 0);
+}
+
+static void secure_handler_addr_irq(void* dummy)
+{
+  uint32_t err_code;
+
+  err_code = app_sched_event_put(NULL, 0, secure_handler_addr);
+  APP_ERROR_CHECK(err_code);
 }
 
 void secure_init(void)
@@ -97,6 +136,9 @@ void secure_init(void)
   uint32_t err_code;
 
   err_code = app_timer_create(&secure_state.timer, APP_TIMER_MODE_SINGLE_SHOT, secure_handler_irq);
+  APP_ERROR_CHECK(err_code);
+
+  err_code = app_timer_create(&secure_state.addr_timer, APP_TIMER_MODE_SINGLE_SHOT, secure_handler_addr_irq);
   APP_ERROR_CHECK(err_code);
 }
 
@@ -134,33 +176,54 @@ void secure_set_passkey(uint8_t* passkey, int32_t timeout_ms)
   {
     secure_state.pairing = 1;
   }
+
+  // Remember our unique, static address
+  err_code = sd_ble_gap_address_get(&secure_state.mesh_addr);
+  APP_ERROR_CHECK(err_code);
+  secure_state.mesh_addr.addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC;
+
+  secure_set_address(SECURE_ADDR_MESH);
 }
 
-void secure_set_keys(uint8_t* oob, uint8_t* irk)
+void secure_set_keys(uint8_t* oob)
 {
   uint32_t err_code;
 
+  // Shared key used to secure mesh network
   memcpy(secure_state.oob, oob, BLE_GAP_SEC_KEY_LEN);
-  if (irk != NULL)
+}
+
+static void secure_set_address(secure_addr_type type)
+{
+  uint32_t err_code;
+
+  if (type != secure_state.addr_type)
   {
-    // Setup a resolvable private address based on the specified IRK
-    memcpy(secure_keys.p.id.id_info.irk, irk, BLE_GAP_SEC_KEY_LEN);
-
-    ble_opt_t opt =
+    switch (type)
     {
-        .gap_opt.privacy = { &secure_keys.p.id.id_info, 0 }
-    };
-    err_code = sd_ble_opt_set(BLE_GAP_OPT_PRIVACY, &opt);
-    APP_ERROR_CHECK(err_code);
+    case SECURE_ADDR_MESH:
+      advertising_stop();
+      err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &secure_state.mesh_addr);
+      APP_ERROR_CHECK(err_code);
+      advertising_set_0();
+      break;
 
-    // Create new private address. This doesn't change
-    secure_keys.p.id.id_addr_info.addr_type = BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE;
-    err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_AUTO, &secure_keys.p.id.id_addr_info);
+    case SECURE_ADDR_ENDPOINT:
+      advertising_stop();
+      err_code = sd_ble_gap_address_set(BLE_GAP_ADDR_CYCLE_MODE_NONE, &secure_state.endpoint_addr);
+      APP_ERROR_CHECK(err_code);
+      advertising_set_1();
+      break;
+
+    default:
+      APP_ERROR_CHECK(NRF_ERROR_INVALID_PARAM);
+      break;
+    }
+
+    secure_state.addr_type = type;
+    err_code = sd_ble_gap_address_get(&secure_keys.p.id.id_addr_info);
     APP_ERROR_CHECK(err_code);
   }
-
-  err_code = sd_ble_gap_address_get(&secure_keys.p.id.id_addr_info);
-  APP_ERROR_CHECK(err_code);
 }
 
 void secure_authenticate(uint16_t handle)
@@ -186,6 +249,70 @@ void secure_ble_event(ble_evt_t* event)
   {
   case BLE_GAP_EVT_CONNECTED:
     secure_state.role = event->evt.gap_evt.params.connected.role;
+    if (event->evt.gap_evt.params.connected.role == BLE_GAP_ROLE_PERIPH && event->evt.gap_evt.params.connected.peer_addr.addr_type == BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE)
+    {
+      switch (mesh_node.state)
+      {
+      case MESH_STATE_IDLE:
+        // Switch to client mode
+        Mesh_Process(&mesh_node, MESH_EVENT_CLIENT_START, 0, 0);
+        err_code = sd_ble_gap_disconnect(event->evt.gap_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+        APP_ERROR_CHECK(err_code);
+        secure_set_address(SECURE_ADDR_ENDPOINT);
+        event->header.evt_id = BLE_EVT_INVALID;
+        err_code = app_timer_start(secure_state.addr_timer, MS_TO_TICKS(SECURE_ADDRESS_SWITCH_TIMEOUT), NULL);
+        APP_ERROR_CHECK(err_code);
+        break;
+
+
+      case MESH_STATE_CLIENT_WAITING:
+        err_code = app_timer_stop(secure_state.addr_timer);
+        APP_ERROR_CHECK(err_code);
+        break;
+
+      case MESH_STATE_CLIENT_STARTING:
+      case MESH_STATE_CLIENT_CONNECTED:
+      default:
+        // Cannot switch to client mode - just disconnect
+        err_code = sd_ble_gap_disconnect(event->evt.gap_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+        APP_ERROR_CHECK(err_code);
+        event->header.evt_id = BLE_EVT_INVALID;
+        break;
+      }
+    }
+    else
+    {
+      switch (mesh_node.state)
+      {
+      case MESH_STATE_IDLE:
+        secure_state.role = event->evt.gap_evt.params.connected.role;
+        break;
+
+      case MESH_STATE_CLIENT_STARTING:
+      case MESH_STATE_CLIENT_WAITING:
+      case MESH_STATE_CLIENT_CONNECTED:
+      default:
+        // In client mode - just disconnect
+        err_code = sd_ble_gap_disconnect(event->evt.gap_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+        APP_ERROR_CHECK(err_code);
+        event->header.evt_id = BLE_EVT_INVALID;
+        break;
+      }
+    }
+    break;
+
+  case BLE_GAP_EVT_DISCONNECTED:
+    switch (mesh_node.state)
+    {
+    case MESH_STATE_CLIENT_CONNECTED:
+      secure_set_address(SECURE_ADDR_MESH);
+      break;
+
+    case MESH_STATE_CLIENT_STARTING:
+    case MESH_STATE_CLIENT_WAITING:
+    default:
+      break;
+    }
     break;
 
   case BLE_GAP_EVT_SEC_INFO_REQUEST:
@@ -209,7 +336,7 @@ void secure_ble_event(ble_evt_t* event)
       }
       else
       {
-        if (secure_state.pairing && secure_havekeyspace())
+        if (secure_state.pairing)
         {
           err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.periph_auth, &secure_state.keyset);
           APP_ERROR_CHECK(err_code);
@@ -248,58 +375,73 @@ void secure_ble_event(ble_evt_t* event)
   }
 }
 
-static uint8_t secure_havekeyspace(void)
-{
-  secure_keytransfer buf;
-
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
-  {
-    uint8_t length = sizeof(buf);
-    Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
-    if (status == MESH_NOTFOUND || (status == MESH_OK && length == sizeof(buf) && memcmp(buf.buf, emptybuf.buf, length) == 0))
-    {
-      return 1;
-    }
-  }
-  return 0;
-}
-
 static uint8_t secure_newkey(ble_gap_enc_key_t* enc, ble_gap_id_key_t* id)
 {
   secure_keytransfer buf;
 
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
+  Mesh_Key match = {};
+  Mesh_Key empty = {};
+
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key.key != MESH_KEY_LTK_LAST.key; key.key++)
   {
     uint8_t length = sizeof(buf);
-    Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length);
-    if (status == MESH_NOTFOUND || (status == MESH_OK && length == sizeof(buf) && memcmp(buf.buf, emptybuf.buf, length) == 0))
+    Mesh_Status status = Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, (uint8_t*)&buf, &length);
+    if (status == MESH_NOTFOUND)
     {
-#if MESH_ENABLE_CLIENT_SUPPORT
-      // Add the MESH_NODEID_CLIENT as a neighbor
-      Mesh_Neighbor* neighbor;
-      if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) != MESH_OK)
+      if (!empty.admin)
       {
-        return 0;
-      }
-      neighbor->flag.valid = 1;
-#endif
-
-      // ediv - used to identify the ltk for reconnections
-      memcpy(buf.buf, &enc->master_id.ediv, sizeof(uint16_t));
-      // ltk - used to secure/auth reconnections
-      memcpy(buf.buf + sizeof(uint16_t), enc->enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
-      // irk - used to resolve address of connecting "phone" when we connect to it
-      memcpy(buf.buf + sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN, id->id_info.irk, BLE_GAP_SEC_KEY_LEN);
-      if (Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, sizeof(buf.buf)) == MESH_OK)
-      {
-        Mesh_Sync(&mesh_node);
-        return 1;
-      }
-      else
-      {
-        return 0;
+        empty = key;
       }
     }
+    else if (status == MESH_OK && length == sizeof(buf))
+    {
+      if (memcmp(&buf, &emptybuf, length) == 0)
+      {
+        if (!empty.admin)
+        {
+          empty = key;
+        }
+      }
+      else if (memcmp(buf.irk, id->id_info.irk, BLE_GAP_SEC_KEY_LEN) == 0)
+      {
+        match = key;
+        break;
+      }
+    }
+  }
+  if (!match.admin)
+  {
+    if (!empty.admin)
+    {
+      // No space
+      return 0;
+    }
+    match = empty;
+  }
+
+  // Add the MESH_NODEID_CLIENT as a neighbor
+  if (!mesh_node.ids[MESH_NODEID_CLIENT].flag.neighbor)
+  {
+    Mesh_Neighbor* neighbor;
+    if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) != MESH_OK)
+    {
+      return 0;
+    }
+    neighbor->flag.valid = 1;
+  }
+
+  // ediv - used to identify the ltk for reconnections
+  memcpy(buf.ediv, &enc->master_id.ediv, sizeof(uint16_t));
+  // ltk - used to secure/auth reconnections
+  memcpy(buf.ltk, enc->enc_info.ltk, BLE_GAP_SEC_KEY_LEN);
+  // irk - used to resolve address of connecting "phone" when we connect to it
+  memcpy(buf.irk, id->id_info.irk, BLE_GAP_SEC_KEY_LEN);
+
+  Mesh_Status status = Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, match, (uint8_t*)&buf, sizeof(buf));
+  if (status == MESH_OK)
+  {
+    Mesh_Sync(&mesh_node);
+    return 1;
   }
 
   return 0;
@@ -311,14 +453,14 @@ static uint8_t secure_selectkey(uint16_t ediv)
 
   memset(secure_keys.p.enc.enc_info.ltk, 0, BLE_GAP_SEC_KEY_LEN);
 
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)); key.key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key.key != MESH_KEY_LTK_LAST.key; key.key++)
   {
     uint8_t length = sizeof(buf);
-    if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length) == MESH_OK)
+    if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, (uint8_t*)&buf, &length) == MESH_OK)
     {
-      if (memcmp(buf.buf, &ediv, sizeof(ediv)) == 0)
+      if (memcmp(buf.ediv, &ediv, sizeof(ediv)) == 0)
       {
-        memcpy(secure_keys.p.enc.enc_info.ltk, buf.buf + sizeof(uint16_t), BLE_GAP_SEC_KEY_LEN);
+        memcpy(secure_keys.p.enc.enc_info.ltk, buf.ltk, BLE_GAP_SEC_KEY_LEN);
         return 1;
       }
     }
@@ -329,34 +471,35 @@ static uint8_t secure_selectkey(uint16_t ediv)
 
 void secure_meshchange(Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
 {
-#if MESH_ENABLE_CLIENT_SUPPORT
   if (id == MESH_NODEID_GLOBAL)
   {
-    for (Mesh_Key search = MESH_KEY_LTK_FIRST; memcmp(&search, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)); search.key++)
+    for (Mesh_Key search = MESH_KEY_LTK_FIRST; key.key != MESH_KEY_LTK_LAST.key; search.key++)
     {
       if (memcmp(&search, &key, sizeof(Mesh_Key)))
       {
         // If we set a LTK, we add a CLIENT neighbor so we'll attempt to sync changes to clients
-        Mesh_Neighbor* neighbor;
-        if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) == MESH_OK)
+        if (!mesh_node.ids[MESH_NODEID_CLIENT].flag.neighbor)
         {
-          neighbor->flag.valid = 1;
+          Mesh_Neighbor* neighbor;
+          if (Mesh_AddNeighbor(&mesh_node, MESH_NODEID_CLIENT, &neighbor) == MESH_OK)
+          {
+            neighbor->flag.valid = 1;
+          }
         }
         break;
       }
     }
   }
-#endif
 }
 
 void secure_reset_bonds(void)
 {
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) != 0; key.key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key.key != MESH_KEY_LTK_LAST.key; key.key++)
   {
     uint8_t length = 0;
     if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, NULL, &length) == MESH_OK)
     {
-      Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, (uint8_t*)emptybuf.buf, sizeof(emptybuf.buf));
+      Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, key, (uint8_t*)&emptybuf, sizeof(emptybuf));
     }
   }
 }
@@ -365,18 +508,56 @@ uint8_t secure_get_irks(ble_gap_irk_t irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT])
 {
   secure_keytransfer buf;
   uint8_t count = 0;
-  for (Mesh_Key key = MESH_KEY_LTK_FIRST; memcmp(&key, &MESH_KEY_LTK_LAST, sizeof(Mesh_Key)) && count < BLE_GAP_WHITELIST_IRK_MAX_COUNT; key.key++)
+  for (Mesh_Key key = MESH_KEY_LTK_FIRST; key.key != MESH_KEY_LTK_LAST.key && count < BLE_GAP_WHITELIST_IRK_MAX_COUNT; key.key++)
   {
     uint8_t length = sizeof(buf);
-    if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length) == MESH_OK)
+    if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, (uint8_t*)&buf, &length) == MESH_OK)
     {
-      memcpy(irks[count++].irk, buf.buf + sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN, BLE_GAP_SEC_KEY_LEN);
+      memcpy(irks[count++].irk, buf.irk, BLE_GAP_SEC_KEY_LEN);
     }
   }
   return count;
 }
 
-uint8_t secure_address_type(void)
+#if 0
+
+static uint8_t secure_check_irk_address(ble_gap_addr_t* address)
 {
-  return secure_keys.p.id.id_addr_info.addr_type;
+  uint32_t err_code;
+
+  if (address->addr_type == BLE_GAP_ADDR_TYPE_RANDOM_PRIVATE_RESOLVABLE)
+  {
+    secure_keytransfer buf;
+    for (Mesh_Key key = MESH_KEY_LTK_FIRST; key.key != MESH_KEY_LTK_LAST.key; key.key++)
+    {
+      uint8_t length = sizeof(buf);
+      if (Mesh_GetValue(&mesh_node, MESH_NODEID_GLOBAL, key, buf.buf, &length) == MESH_OK)
+      {
+        uint8_t* irk = buf.buf + sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN;
+        nrf_ecb_hal_data_t edata =
+        {
+          .key =
+          {
+            irk[15], irk[14], irk[13], irk[12], irk[11], irk[10], irk[9], irk[8],
+            irk[7],  irk[6],  irk[5],  irk[4],  irk[3],  irk[2],  irk[1], irk[0]
+          },
+          .cleartext =
+          {
+            0, 0, 0, 0, 0, 0, 0, 0,
+            0, 0, 0, 0, 0, address->addr[5], address->addr[4], address->addr[3]
+          }
+        };
+        err_code = sd_ecb_block_encrypt(&edata);
+        APP_ERROR_CHECK(err_code);
+
+        if (edata.ciphertext[15] == address->addr[0] && edata.ciphertext[14] == address->addr[1] && edata.ciphertext[13] == address->addr[2])
+        {
+          return 1;
+        }
+      }
+    }
+  }
+  return 0;
 }
+
+#endif

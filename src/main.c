@@ -16,13 +16,13 @@
 #include "services/gpio.h"
 #include "services/timer.h"
 #include "services/scheduler.h"
-#include "services/advertising.h"
 #include "services/gap.h"
 #include "services/devinfo.h"
 #include "services/connparams.h"
 #include "services/oneminutetimer.h"
 
 #include "nrfmesh/uuids.h"
+#include "nrfmesh/advertising.h"
 #include "nrfmesh/nrfmesh.h"
 #include "nrfmesh/secure.h"
 #include "nrfmesh/statistics.h"
@@ -138,7 +138,7 @@ int main(void)
 
 	// Begin ...
   secure_set_passkey("000000", -1);
-  secure_set_keys("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0", "\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default keys
+  secure_set_keys("\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0\0"); // Default key
   nrfmesh_start();
 
 	advertising_start();

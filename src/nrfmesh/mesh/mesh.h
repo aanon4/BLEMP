@@ -71,24 +71,10 @@
 #endif
 
 //
-// The UUID used to identify this network.
-//
-#if !defined(MESH_UUID)
-#define MESH_UUID                     0x21, 0xAB, 0xBA, 0x78, 0x15, 0x75, 0x4D, 0xBB, 0x9C, 0x8B, 0xCB, 0x68, 0x08, 0xB2, 0x30, 0xED
-#endif
-
-//
-// The UUID used for the base of all mesh related services and characteristics.
+// The UUID used for the base of all mesh related advertising, services and characteristics.
 //
 #if !defined(MESH_SERVICE_BASE_UUID)
 #define MESH_SERVICE_BASE_UUID        0x1D, 0xAE, 0x74, 0x7C, 0x62, 0xA9, 0x95, 0x9C, 0x9A, 0x44, 0xBD, 0x5F, (0), (0), 0xAD, 0x79
-#endif
-
-//
-// Enable support for clients (e.g. phones) which are not part of the usual mesh
-//
-#if !defined(MESH_ENABLE_CLIENT_SUPPORT)
-#define MESH_ENABLE_CLIENT_SUPPORT           0
 #endif
 
 //
@@ -104,7 +90,7 @@
 //
 // Limit the number of retries when connecting to clients (phones). Clients may be legitimately absent for a long time.
 //
-#define MESH_MAX_CLIENT_RETRIES       4
+#define MESH_MAX_CLIENT_RETRIES       1
 
 //
 // Only tell neighbors about our other neighbors if they are reliable (have few retries).
@@ -121,14 +107,6 @@
 #define MESH_KEEPALIVE_SWEEP_TIME     (2 * MESH_KEEPALIVE_TIME)     // 30 minutes
 
 //
-// Define the Mesh security level.
-// Mesh is open by default.
-//
-#if !defined(MESH_SECURITY_LEVEL)
-#define MESH_SECURITY_LEVEL           1
-#endif
-
-//
 // Standard BLE sizes
 //
 #define MESH_NODEADDRESS_SIZE          6  // MAC address
@@ -142,12 +120,8 @@ typedef unsigned char Mesh_NodeId;
 #define MESH_NODEID_INVALID           ((Mesh_NodeId)-1)
 #define MESH_NODEID_SELF              ((Mesh_NodeId)0)
 #define MESH_NODEID_GLOBAL            ((Mesh_NodeId)1)
-#if MESH_ENABLE_CLIENT_SUPPORT
 #define MESH_NODEID_CLIENT            ((Mesh_NodeId)2)
 #define MESH_NODEID_FIRST_AVAILABLE   ((Mesh_NodeId)3)
-#else
-#define MESH_NODEID_FIRST_AVAILABLE   ((Mesh_NodeId)2)
-#endif
 
 typedef struct
 {
@@ -155,7 +129,7 @@ typedef struct
   unsigned char   sub:4;
   unsigned char   rdonly:1;
   unsigned char   wrlocal:1;
-  unsigned char   unused:1;
+  unsigned char   notify:1;
   unsigned char   admin:1;
 } __attribute__((packed)) Mesh_Key;
 
@@ -163,7 +137,7 @@ typedef struct
 #define _MESH_KEY_KEEPALIVE           { .admin = 1, .wrlocal = 1, .key = 0 }
 #define _MESH_KEY_INFO                { .admin = 1, .rdonly  = 1, .key = 1 }
 #define _MESH_KEY_LTK_FIRST           { .admin = 1, .key = 0x10 }
-#define _MESH_KEY_LTK_LAST            { .admin = 1, .key = 0x14 }
+#define _MESH_KEY_LTK_LAST            { .admin = 1, .key = 0x18 }
 #define _MESH_KEY_INVALID             { .admin = 1, .key = 0xFFFF }
 
 typedef unsigned char Mesh_Version;
@@ -240,7 +214,10 @@ typedef enum Mesh_State
   MESH_STATE_SYNCMASTERDISCONNECTING,
   MESH_STATE_SYNCPERIPHERALWRITING,
   MESH_STATE_SYNCPERIPHERALREADING,
-  MESH_STATE_SYNCPERIPHERALDONE
+  MESH_STATE_SYNCPERIPHERALDONE,
+  MESH_STATE_CLIENT_STARTING,
+  MESH_STATE_CLIENT_WAITING,
+  MESH_STATE_CLIENT_CONNECTED
 } Mesh_State;
 
 //
@@ -284,6 +261,7 @@ typedef struct Mesh_Node
   struct
   {
     Mesh_ChangeBits changebits;
+    Mesh_ChangeBits clientbits;
     unsigned char   count;
     Mesh_Neighbor   neighbors[MESH_MAX_NEIGHBORS];
   }             neighbors;
@@ -346,7 +324,9 @@ typedef enum Mesh_Event
   MESH_EVENT_INVALIDNODE,
   MESH_EVENT_SYNC,
   MESH_EVENT_RETRY,
-  MESH_EVENT_KEEPALIVE
+  MESH_EVENT_KEEPALIVE,
+  MESH_EVENT_CLIENT_START,
+  MESH_EVENT_CLIENT_TIMEOUT,
 } Mesh_Event;
 
 //

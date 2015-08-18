@@ -10,7 +10,7 @@
 #include "nrfmesh.h"
 #include "meshinfo.h"
 
-#include "services/advertising.h"
+#include "advertising.h"
 
 static const Mesh_Key MESH_KEY_INFO = _MESH_KEY_INFO;
 
