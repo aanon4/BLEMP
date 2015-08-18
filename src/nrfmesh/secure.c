@@ -64,7 +64,7 @@ static struct
   .endpoint_addr =
   {
     .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
-    .addr = { 1, 2, 3, 4, 5, 6 | 0xC0 }
+    .addr = { SECURE_CLIENT_ADDRESS | 0xC0 }
   },
   .periph_auth =
   {

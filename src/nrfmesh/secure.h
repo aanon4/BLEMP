@@ -8,6 +8,8 @@
 #ifndef NRFMESH_SECURE_H_
 #define NRFMESH_SECURE_H_
 
+#define SECURE_CLIENT_ADDRESS   1,1,1,1,1,1
+
 extern void secure_init(void);
 extern void secure_set_passkey(uint8_t* passkey, int32_t timeout_ms);
 extern void secure_set_keys(uint8_t* oob);
