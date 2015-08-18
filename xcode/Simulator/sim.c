@@ -38,7 +38,7 @@ void simSetup(int nodeCount)
   
   for (int i = 0; i < nrNodes; i++)
   {
-    dummyId.address[0] = i + 1;
+    dummyId.address[0] = i + 0x80;
     Mesh_NodeReset(&nodes[i], &dummyId);
   }
 }
