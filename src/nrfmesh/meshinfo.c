@@ -25,7 +25,7 @@ void meshinfo_init(void)
   } __attribute__((packed)) info =
   {
     MESHINFO_KEY_ADVERTISING_INTERVAL,
-    APP_ADV_INTERVAL,
+    MESH_ADVERTISING_PERIOD,
     MESHINFO_KEY_POWER_SOURCE,
     1,
   };

@@ -17,6 +17,7 @@
 #include "advertising.h"
 
 static uint8_t advertising_id[4];
+static uint8_t advertising_set;
 
 
 void advertising_init(void)
@@ -78,6 +79,8 @@ void advertising_set_0(void)
 
   err_code = ble_advdata_set(&adv_data, &scan_data);
   APP_ERROR_CHECK(err_code);
+
+  advertising_set = 0;
 }
 
 void advertising_set_1(void)
@@ -103,6 +106,8 @@ void advertising_set_1(void)
 
   err_code = ble_advdata_set(NULL, &scan_data);
   APP_ERROR_CHECK(err_code);
+
+  advertising_set = 1;
 }
 
 void advertising_start(void)
@@ -114,7 +119,7 @@ void advertising_start(void)
   {
     .type        = BLE_GAP_ADV_TYPE_ADV_IND,
     .fp          = BLE_GAP_ADV_FP_ANY,
-    .interval    = MSEC_TO_UNITS(APP_ADV_INTERVAL, UNIT_0_625_MS),
+    .interval    = MSEC_TO_UNITS(advertising_set == 0 ? MESH_ADVERTISING_PERIOD : MESH_ADVERTISING_FAST_PERIOD, UNIT_0_625_MS),
     .timeout     = APP_ADV_TIMEOUT_IN_SECONDS
   };
 

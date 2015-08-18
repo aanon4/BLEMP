@@ -17,6 +17,11 @@
 //
 
 //
+// Include local overrides.
+//
+#include "mesh-local.h"
+
+//
 // The maximum number of nodes supported in the mesh.
 //
 #if !defined(MESH_MAX_NODES)
@@ -90,7 +95,7 @@
 //
 // Limit the number of retries when connecting to clients (phones). Clients may be legitimately absent for a long time.
 //
-#define MESH_MAX_CLIENT_RETRIES       1
+#define MESH_MAX_CLIENT_RETRIES       4
 
 //
 // Only tell neighbors about our other neighbors if they are reliable (have few retries).
@@ -105,6 +110,16 @@
 #define MESH_KEEPALIVE_TIME           (15 * 60)                     // 15 minutes
 #endif
 #define MESH_KEEPALIVE_SWEEP_TIME     (2 * MESH_KEEPALIVE_TIME)     // 30 minutes
+
+//
+// Advertising periods
+//
+#if !defined(MESH_ADVERTISING_PERIOD)
+#define MESH_ADVERTISING_PERIOD       1000
+#endif
+#if !defined(MESH_ADVERTISING_FAST_PERIOD)
+#define MESH_ADVERTISING_FAST_PERIOD  100
+#endif
 
 //
 // Standard BLE sizes

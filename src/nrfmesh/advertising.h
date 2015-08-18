@@ -8,7 +8,6 @@
 #ifndef ADVERTISING_H_
 #define ADVERTISING_H_
 
-#define APP_ADV_INTERVAL                   2000 // The advertising interval in ms
 #define APP_ADV_TIMEOUT_IN_SECONDS            0 // No advertising timeout
 
 #define _REVERSE_UUID(A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P) P,O,N,M,L,K,J,I,H,G,F,E,D,C,B,A
