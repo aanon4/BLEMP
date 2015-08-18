@@ -224,9 +224,25 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           // If we have a set connection priority, we do that first
           if (node->sync.priority == MESH_NODEID_INVALID || Mesh_FindNeighbor(node, node->sync.priority, &node->sync.neighbor) != MESH_OK)
           {
-            unsigned char random = 0;
-            Mesh_System_RandomNumber(&random, sizeof(random));
-            node->sync.neighbor = &node->neighbors.neighbors[random % MESH_MAX_NEIGHBORS];
+            // If we have UKVs for clients, send to clients
+            Mesh_ChangeBits cbits = node->sync.remainingbits & node->neighbors.clientbits;
+            if (cbits)
+            {
+              // Search neigbors for a client which we haven't tried to sync with recently. Once retries > 0 we
+              // no longer prefer clients over other nodes
+              for (unsigned char id = 0; id < MESH_MAX_NEIGHBORS; id++)
+              {
+                if ((cbits & (1 << id)) && node->neighbors.neighbors[id].retries == 0)
+                {
+                  node->sync.neighbor = &node->neighbors.neighbors[id];
+                  goto syncclient;
+                }
+              }
+            }
+            unsigned char id = 0;
+            Mesh_System_RandomNumber(&id, sizeof(id));
+            node->sync.neighbor = &node->neighbors.neighbors[id % MESH_MAX_NEIGHBORS];
+          syncclient:;
           }
           node->sync.priority = MESH_NODEID_INVALID;
 
@@ -1079,7 +1095,7 @@ Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
     }
   }
   Mesh_Neighbor* neighbor;
-  if (id != MESH_NODEID_SELF && node->sync.priority == MESH_NODEID_INVALID && Mesh_FindNeighbor(node, id, &neighbor) == MESH_OK)
+  if (node->sync.priority == MESH_NODEID_INVALID && Mesh_FindNeighbor(node, id, &neighbor) == MESH_OK)
   {
     node->sync.priority = id;
   }
