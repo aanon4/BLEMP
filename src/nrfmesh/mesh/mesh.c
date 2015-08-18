@@ -1181,11 +1181,20 @@ Mesh_Status Mesh_AddNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** ne
   };
   current->flag = defaultFlags;
   
-  // Mark all UKVs to be synced to the neighbor
+  // Mark all UKVs to be synced to the neighbor. We dont do this for client nodes
+  // because we expect them to update themselves with just the info they care about
+  // after they connect.
   Mesh_ChangeBits bit = MESH_NEIGHBOR_TO_CHANGEBIT(node, current);
-  for (Mesh_UKV* ukv = &node->values.values[node->values.count - 1]; ukv >= &node->values.values[0]; ukv--)
+  if (!node->ids[id].flag.client)
   {
-    ukv->changebits |= bit;
+    for (Mesh_UKV* ukv = &node->values.values[node->values.count - 1]; ukv >= &node->values.values[0]; ukv--)
+    {
+      ukv->changebits |= bit;
+    }
+  }
+  else
+  {
+    node->neighbors.clientbits |= bit;
   }
   // Add new neighbor to the changebits
   node->neighbors.changebits |= bit;
@@ -1193,11 +1202,6 @@ Mesh_Status Mesh_AddNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** ne
   // Set the neighbor flag on the id
   node->ids[id].flag.neighbor = 1;
   node->neighbors.count++;
-  
-  if (node->ids[id].flag.client)
-  {
-    node->neighbors.clientbits |= bit;
-  }
 
   *neighbor = current;
   
