@@ -38,6 +38,7 @@
 		223024A01B1700A1002DA161 /* meshsystem.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = meshsystem.h; path = ../src/nrfmesh/mesh/meshsystem.h; sourceTree = "<group>"; };
 		22590E5A1A6B9E55008A563B /* Helpers.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Helpers.swift; sourceTree = "<group>"; };
 		22590E5C1A6B9F34008A563B /* Mesh2NodeUnitTests.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Mesh2NodeUnitTests.swift; sourceTree = "<group>"; };
+		2276AC4A1B82FC620051CA70 /* mesh-local.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; name = "mesh-local.h"; path = "Simulator/mesh-local.h"; sourceTree = "<group>"; };
 		227AA9191A5F9D13009CC595 /* Mesh */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = Mesh; sourceTree = BUILT_PRODUCTS_DIR; };
 		227AA92E1A60B1C1009CC595 /* main.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; lineEnding = 0; name = main.c; path = Simulator/main.c; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		22912A051A64A56E0068A7B3 /* simsystem.c */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.c; name = simsystem.c; path = Simulator/simsystem.c; sourceTree = "<group>"; };
@@ -104,6 +105,7 @@
 				22912A051A64A56E0068A7B3 /* simsystem.c */,
 				22912A071A64A5B80068A7B3 /* sim.h */,
 				22912A1F1A6B27BB0068A7B3 /* sim.c */,
+				2276AC4A1B82FC620051CA70 /* mesh-local.h */,
 			);
 			name = Simulator;
 			sourceTree = "<group>";

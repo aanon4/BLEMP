@@ -9,7 +9,6 @@
 
 #include <ble.h>
 
-#if defined(TESTING_KEEPALIVE)
 
 #include <nordic_common.h>
 #include <ble_gatts.h>
@@ -20,6 +19,8 @@
 #include "nrfmesh.h"
 #include "uuids.h"
 #include "keepalive.h"
+
+#if defined(TESTING_KEEPALIVE)
 
 static uint16_t keepalive_connection;
 static uint16_t keepalive_handle;

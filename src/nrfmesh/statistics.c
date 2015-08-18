@@ -13,6 +13,8 @@
 #include <nrf_soc.h>
 #include <app_timer.h>
 
+#include "mesh/mesh.h"
+
 #include "uuids.h"
 #include "statistics.h"
 

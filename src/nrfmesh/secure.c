@@ -187,8 +187,6 @@ void secure_set_passkey(uint8_t* passkey, int32_t timeout_ms)
 
 void secure_set_keys(uint8_t* oob)
 {
-  uint32_t err_code;
-
   // Shared key used to secure mesh network
   memcpy(secure_state.oob, oob, BLE_GAP_SEC_KEY_LEN);
 }
@@ -264,7 +262,6 @@ void secure_ble_event(ble_evt_t* event)
         APP_ERROR_CHECK(err_code);
         break;
 
-
       case MESH_STATE_CLIENT_WAITING:
         err_code = app_timer_stop(secure_state.addr_timer);
         APP_ERROR_CHECK(err_code);
@@ -316,9 +313,16 @@ void secure_ble_event(ble_evt_t* event)
     break;
 
   case BLE_GAP_EVT_SEC_INFO_REQUEST:
-    secure_selectkey(event->evt.gap_evt.params.sec_info_request.master_id.ediv);
-    secure_keys.p.enc.enc_info.auth = 1;
-    err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, &secure_keys.p.enc.enc_info, NULL, NULL);
+    if (secure_selectkey(event->evt.gap_evt.params.sec_info_request.master_id.ediv))
+    {
+      err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, &secure_keys.p.enc.enc_info, NULL, NULL);
+      APP_ERROR_CHECK(err_code);
+    }
+    else
+    {
+      err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, NULL, NULL, NULL);
+      APP_ERROR_CHECK(err_code);
+    }
     break;
 
   case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
@@ -461,6 +465,7 @@ static uint8_t secure_selectkey(uint16_t ediv)
       if (memcmp(buf.ediv, &ediv, sizeof(ediv)) == 0)
       {
         memcpy(secure_keys.p.enc.enc_info.ltk, buf.ltk, BLE_GAP_SEC_KEY_LEN);
+        secure_keys.p.enc.enc_info.auth = 1;
         return 1;
       }
     }
