@@ -72,6 +72,8 @@ extern uint32_t statistics_get_time(void);
 #define	STAT_RECORD_SET(FIELD, VALUE)
 #define	STAT_RECORD_ADD(FIELD, VALUE)
 #define	STAT_RECORD_INC(FIELD)
+#define STAT_TIMER_START(FIELD)
+#define STAT_TIMER_END(FIELD)
 
 #endif
 
