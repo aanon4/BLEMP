@@ -9,6 +9,13 @@
 #include "mesh.h"
 #include "meshsystem.h"
 
+static Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits);
+static Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, Mesh_Version version, Mesh_ChangeBits changebits);
+static Mesh_ChangeBits Mesh_GetChangeBits(Mesh_Node* node);
+#if ENABLE_MESH_TRIMMING
+static Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space);
+#endif
+
 static const Mesh_Key MESH_KEY_INVALID = _MESH_KEY_INVALID;
 
 //
@@ -908,7 +915,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 // Application should use the more generic Mesh_SetValue function below. This one allows more specific control over versioning, etc. and
 // is used interally.
 //
-Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits)
+static Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits)
 {
   Mesh_UKV* values = node->values.values;
   unsigned short count;
@@ -1044,40 +1051,6 @@ Mesh_Status Mesh_GetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
 }
 
 //
-// Iterator to retrieve key/value pairs on this node for a succession of NodeIDs.
-//
-Mesh_Status Mesh_GetNthValue(Mesh_Node* node, Mesh_Key key, unsigned char nth, Mesh_NodeId* id, unsigned char* value, unsigned char* length)
-{
-  Mesh_UKV* values = node->values.values;
-  for (unsigned short count = node->values.count; count; count--, values++)
-  {
-    if (Mesh_System_memcmp(&values->key, &key, sizeof(Mesh_Key)) == 0)
-    {
-      if (!nth--)
-      {
-        if (value == NULL)
-        {
-          *length = values->length;
-          return MESH_OK;
-        }
-        else if (*length >= values->length)
-        {
-          *id = values->id;
-          *length = values->length;
-          Mesh_System_memmove(value, MESH_UKV_VALUE(values), values->length);
-          return MESH_OK;
-        }
-        else
-        {
-          return MESH_OOM;
-        }
-      }
-    }
-  }
-  return MESH_NOTFOUND;
-}
-
-//
 // Set a id/key/value from the local node.
 //
 Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length)
@@ -1117,7 +1090,7 @@ Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
 // Sync a specific id/key/value set.
 // A sync will only succeed if we already have the matching UKV; we do not create new UKVs here.
 //
-Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, Mesh_Version version, Mesh_ChangeBits changebits)
+static Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, Mesh_Version version, Mesh_ChangeBits changebits)
 {
   Mesh_UKV* current = node->values.values;
   unsigned short count;
@@ -1358,7 +1331,7 @@ Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id)
 // each node holds an entire copy of the values in the network. This can be useful if you want to read
 // a value from a node which is not directly accessible.
 //
-Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space)
+static Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space)
 {
   Mesh_UKV* selected = NULL;
 
@@ -1524,17 +1497,9 @@ Mesh_NodeId Mesh_InternNodeId(Mesh_Node* node, Mesh_NodeAddress* id, unsigned ch
 }
 
 //
-// Get the NodeAddress associated with the NodeId.
-//
-Mesh_NodeAddress* Mesh_GetNodeAddress(Mesh_Node* node, Mesh_NodeId id)
-{
-  return &node->ids[id].address;
-}
-
-//
 // Calculate the set of neighbors to send pending changes to.
 //
-Mesh_ChangeBits Mesh_GetChangeBits(Mesh_Node* node)
+static Mesh_ChangeBits Mesh_GetChangeBits(Mesh_Node* node)
 {
   Mesh_ChangeBits changes = 0;
   for (Mesh_UKV* ukv = &node->values.values[node->values.count - 1]; ukv >= &node->values.values[0]; ukv--)

@@ -386,9 +386,6 @@ extern Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char
 //
 extern Mesh_Status Mesh_GetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char* length);
 extern Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length);
-extern Mesh_Status Mesh_GetNthValue(Mesh_Node* node, Mesh_Key key, unsigned char nth, Mesh_NodeId* id, unsigned char* value, unsigned char* length);
-extern Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits);
-extern Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, Mesh_Version version, Mesh_ChangeBits changebits);
 
 //
 // Manage neighbors and nodes in the mesh.
@@ -398,14 +395,11 @@ extern Mesh_Status Mesh_AddNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighb
 extern Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, unsigned char error);
 extern Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id);
 
-#if ENABLE_MESH_TRIMMING
-extern Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space);
-#endif
-
+//
+// Misc.
+//
 extern Mesh_Status Mesh_NodeReset(Mesh_Node* node, Mesh_NodeAddress* address);
 extern Mesh_NodeId Mesh_InternNodeId(Mesh_Node* node, Mesh_NodeAddress* id, unsigned char create);
-extern Mesh_NodeAddress* Mesh_GetNodeAddress(Mesh_Node* node, Mesh_NodeId id);
-extern Mesh_ChangeBits Mesh_GetChangeBits(Mesh_Node* node);
 extern Mesh_Status Mesh_Sync(Mesh_Node* node);
 
 #endif
