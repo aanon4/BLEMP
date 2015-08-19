@@ -28,10 +28,7 @@ void advertising_init(void)
   err_code = sd_ble_gap_address_get(&mac);
   APP_ERROR_CHECK(err_code);
 
-  advertising_id[0] = mac.addr[3];
-  advertising_id[1] = mac.addr[2];
-  advertising_id[2] = mac.addr[1];
-  advertising_id[3] = mac.addr[0];
+  memcpy(advertising_id, mac.addr, sizeof(advertising_id));
 }
 
 void advertising_set_0(void)
@@ -43,7 +40,7 @@ void advertising_set_0(void)
     0x02, 0x15,
     REVERSE_UUID(MESH_SERVICE_BASE_UUID),
     advertising_id[0], advertising_id[1], advertising_id[2], advertising_id[3],
-    0xCA
+    (uint8_t)MESH_ADVERTISING_TXPOWER
   };
   ble_advdata_manuf_data_t manu_data =
   {

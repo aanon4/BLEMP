@@ -112,13 +112,16 @@
 #define MESH_KEEPALIVE_SWEEP_TIME     (2 * MESH_KEEPALIVE_TIME)     // 30 minutes
 
 //
-// Advertising periods
+// Advertising
 //
 #if !defined(MESH_ADVERTISING_PERIOD)
 #define MESH_ADVERTISING_PERIOD       1000
 #endif
 #if !defined(MESH_ADVERTISING_FAST_PERIOD)
 #define MESH_ADVERTISING_FAST_PERIOD  100
+#endif
+#if !defined(MESH_ADVERTISING_TXPOWER)
+#define MESH_ADVERTISING_TXPOWER      0xCA
 #endif
 
 //
