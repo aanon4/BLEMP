@@ -220,7 +220,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         {
         lookforsync:;
           node->sync.remainingbits = Mesh_GetChangeBits(node);
-          unsigned char count = MESH_MAX_NEIGHBORS;
           // If we have a set connection priority, we do that first
           if (node->sync.priority == MESH_NODEID_INVALID || Mesh_FindNeighbor(node, node->sync.priority, &node->sync.neighbor) != MESH_OK)
           {
@@ -246,7 +245,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           }
           node->sync.priority = MESH_NODEID_INVALID;
 
-          for (; count; count--)
+          for (unsigned char count = MESH_MAX_NEIGHBORS; count; count--)
           {
             if (!node->sync.neighbor->flag.retry && node->sync.neighbor->flag.valid && (node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
             {

@@ -209,7 +209,25 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		else
 		{
 			mesh_state.out_handle = event->evt.gap_evt.conn_handle;
-			if (mesh_node.sync.neighbor->handle)
+			// Resolve address to relevant neighbor
+			Mesh_NodeId id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 0);
+			if (id == MESH_NODEID_INVALID)
+			{
+			  if (event->evt.gap_evt.params.connected.irk_match)
+			  {
+			    id = MESH_NODEID_CLIENT;
+			  }
+			  else
+			  {
+			    APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
+			  }
+			}
+			if (Mesh_FindNeighbor(&mesh_node, id, &mesh_node.sync.neighbor) != MESH_OK)
+			{
+			  // Unexpected failure - we should always know the neighbor we're connecting to!
+			  APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
+			}
+			else if (mesh_node.sync.neighbor->handle)
 			{
 			  connected:;
 				mesh_state.attr_handle = mesh_node.sync.neighbor->handle;
@@ -457,50 +475,61 @@ void Mesh_System_Connect(Mesh_Node* node)
   STAT_TIMER_START(connections_out_total_time_ms);
   STAT_TIMER_START(connecting_out_total_time_ms);
 
-	if (mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
-	{
-	  // For a "client" address, this is a proxy for all clients. We attempt to connect
-	  // to any of them using the whitelist because we don't know the actual address (just
-	  // the client's IRK).
-	  ble_gap_irk_t irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT];
-	  uint8_t irk_count = secure_get_irks(irks);
-	  ble_gap_irk_t* p_irks[irk_count];
-	  for (uint8_t i = irk_count; i--; )
-	  {
-	    p_irks[i] = &irks[i];
-	  }
-	  ble_gap_whitelist_t whitelist =
-	  {
-	    .pp_irks = p_irks,
-	    .irk_count = irk_count
-	  };
-	  ble_gap_scan_params_t scan =
-	  {
-      .interval = CONNECT_SCAN_INTERVAL,
-      .window = CONNECT_SCAN_WINDOW,
-      .timeout = CONNECT_TIMEOUT_CLIENT,
-      .selective = 1,
-      .p_whitelist = &whitelist
-	  };
-	  err_code = sd_ble_gap_connect(NULL, &scan, &conn);
-	  APP_ERROR_CHECK(err_code);
-	}
-	else
-	{
-    ble_gap_scan_params_t scan =
+  // Rather than connect to a specific neighbor, we attempt to connect to many at once. Only one will succeed, which we will then
+  // handle in the usual way. By looking for many at once, we will connect to the first we see which should speed up the syncing
+  // process and reduce overall power usage.
+  ble_gap_addr_t addrs[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
+  ble_gap_addr_t* p_addrs[BLE_GAP_WHITELIST_ADDR_MAX_COUNT];
+  ble_gap_irk_t irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT];
+  ble_gap_irk_t* p_irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT];
+  uint8_t addr_count = 0;
+  uint8_t irk_count = 0;
+  Mesh_Neighbor* neighbor = mesh_node.sync.neighbor;
+  for (uint8_t neighbor_count = MESH_MAX_NEIGHBORS; neighbor_count && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor_count--)
+  {
+    if (neighbor->flag.valid && !neighbor->flag.retry && (mesh_node.sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(&mesh_node, neighbor)))
     {
-      .interval = CONNECT_SCAN_INTERVAL,
-      .window = CONNECT_SCAN_WINDOW,
-      .timeout = CONNECT_TIMEOUT_FIXED
-    };
-    ble_gap_addr_t addr =
+      if (!mesh_node.ids[neighbor->id].flag.client)
+      {
+        addrs[addr_count].addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC;
+        Mesh_System_memmove(&addrs[addr_count].addr, &mesh_node.ids[neighbor->id].address, sizeof(Mesh_NodeAddress));
+        p_addrs[addr_count] = &addrs[addr_count];
+        addr_count++;
+      }
+      else
+      {
+        if (irk_count == 0)
+        {
+          irk_count = secure_get_irks(irks);
+          for (uint8_t i = irk_count; i--; )
+          {
+            p_irks[i] = &irks[i];
+          }
+        }
+      }
+    }
+    if (--neighbor < &mesh_node.neighbors.neighbors[0])
     {
-      .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC
-    };
-    Mesh_System_memmove(&addr.addr, &mesh_node.ids[mesh_node.sync.neighbor->id].address, sizeof(Mesh_NodeAddress));
-    err_code = sd_ble_gap_connect(&addr, &scan, &conn);
-    APP_ERROR_CHECK(err_code);
-	}
+      neighbor = &mesh_node.neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
+    }
+  }
+  ble_gap_whitelist_t whitelist =
+  {
+    .pp_addrs = p_addrs,
+    .addr_count = addr_count,
+    .pp_irks = p_irks,
+    .irk_count = irk_count
+  };
+  ble_gap_scan_params_t scan =
+  {
+    .interval = CONNECT_SCAN_INTERVAL,
+    .window = CONNECT_SCAN_WINDOW,
+    .timeout = CONNECT_TIMEOUT,
+    .selective = 1,
+    .p_whitelist = &whitelist
+  };
+  err_code = sd_ble_gap_connect(NULL, &scan, &conn);
+  APP_ERROR_CHECK(err_code);
 }
 
 void Mesh_System_Disconnect(Mesh_Node* node)
