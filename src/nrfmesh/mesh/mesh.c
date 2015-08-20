@@ -227,7 +227,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
             Mesh_ChangeBits cbits = node->sync.remainingbits & node->neighbors.clientbits;
             if (cbits)
             {
-              // Search neigbors for a client which we haven't tried to sync with recently. Once retries > 0 we
+              // Search neighbors for a client which we haven't tried to sync with recently. Once retries > 0 we
               // no longer prefer clients over other nodes
               for (unsigned char id = 0; id < MESH_MAX_NEIGHBORS; id++)
               {
@@ -247,7 +247,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 
           for (unsigned char count = MESH_MAX_NEIGHBORS; count; count--)
           {
-            if (!node->sync.neighbor->flag.retry && node->sync.neighbor->flag.valid && (node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
+            if (node->sync.neighbor->flag.valid && !node->sync.neighbor->flag.retry && (node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
             {
               // Found one
               node->state = MESH_STATE_SYNCMASTERCONNECTING;
@@ -278,6 +278,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
     break;
 
   case MESH_STATE_SYNCMASTERDISCONNECTING:
+    node->sync.neighbor = NULL;
     switch (event)
     {
       case MESH_EVENT_DISCONNECTED:
@@ -835,7 +836,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       {
       mastersyncdone:;
         // Remove any invalid neighbors
-        node->sync.neighbor = NULL;
         switch (node->state)
         {
           case MESH_STATE_SYNCMASTERDONE:

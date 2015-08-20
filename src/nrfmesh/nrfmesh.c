@@ -210,15 +210,20 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		{
 			mesh_state.out_handle = event->evt.gap_evt.conn_handle;
 			// Resolve address to relevant neighbor
-			Mesh_NodeId id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 0);
-			if (id == MESH_NODEID_INVALID)
-			{
-			  if (event->evt.gap_evt.params.connected.irk_match)
-			  {
-			    id = MESH_NODEID_CLIENT;
-			  }
-			  else
-			  {
+			Mesh_NodeId id;
+			if (event->evt.gap_evt.params.connected.irk_match)
+      {
+        id = MESH_NODEID_CLIENT;
+        if (mesh_node.state != MESH_STATE_SYNCMASTERCONNECTING)
+        {
+          APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
+        }
+      }
+      else
+      {
+        id = Mesh_InternNodeId(&mesh_node, (Mesh_NodeAddress*)event->evt.gap_evt.params.connected.peer_addr.addr, 0);
+        if (id == MESH_NODEID_INVALID)
+        {
 			    APP_ERROR_CHECK(NRF_ERROR_INVALID_STATE);
 			  }
 			}
@@ -295,7 +300,7 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		mesh_state.in_handle = BLE_CONN_HANDLE_INVALID;
 		mesh_state.out_handle = BLE_CONN_HANDLE_INVALID;
 		// The GATT in clients changes often so we cannot cache it
-		if (mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
+		if (mesh_node.sync.neighbor && mesh_node.ids[mesh_node.sync.neighbor->id].flag.client)
 		{
 		  mesh_node.sync.neighbor->handle = 0;
 		}
@@ -513,6 +518,17 @@ void Mesh_System_Connect(Mesh_Node* node)
       neighbor = &mesh_node.neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
     }
   }
+
+  // If we have no IRKs this time we force an empty one.
+  // We cannot leave this blank otherwise the system will reuse the last one :-(
+  if (irk_count == 0)
+  {
+    static const ble_gap_irk_t empty_irk;
+    irks[0] = empty_irk;
+    p_irks[0] = &irks[0];
+    irk_count++;
+  }
+
   ble_gap_whitelist_t whitelist =
   {
     .pp_addrs = p_addrs,
