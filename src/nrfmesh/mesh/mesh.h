@@ -109,7 +109,7 @@
 #if !defined(MESH_KEEPALIVE_TIME)
 #define MESH_KEEPALIVE_TIME           (15 * 60)                     // 15 minutes
 #endif
-#define MESH_KEEPALIVE_SWEEP_TIME     (2 * MESH_KEEPALIVE_TIME)     // 30 minutes
+#define MESH_KEEPALIVE_SWEEP_TIME     (4 * MESH_KEEPALIVE_TIME)     // 60 minutes
 
 //
 // Advertising
