@@ -428,14 +428,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         goto mastersyncdone;
 
       case MESH_EVENT_WROTE:
-        if (node->ids[node->sync.neighbor->id].flag.client)
-        {
-          goto mastersyncdone;
-        }
-        else
-        {
-          Mesh_System_Read(node);
-        }
+        Mesh_System_Read(node);
         break;
 
       default:
