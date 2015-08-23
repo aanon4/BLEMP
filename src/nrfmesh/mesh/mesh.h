@@ -103,13 +103,14 @@
 #define MESH_NEIGHBOR_FORWARD_LIMIT   (MESH_MAX_RETRIES / 4)
 
 //
-// Nodes periodically send keepalive messages. If nodes messages aren't seen after 2 sweeps the node
-// will be forgotten (assumed removed or failed).
+// Nodes periodically send timesync messages. If nodes messages aren't seen after 2 sweeps the node
+// will be forgotten (assumed removed or failed). Timesync messages keep nodes on the same approximate
+// global time.
 //
-#if !defined(MESH_KEEPALIVE_TIME)
-#define MESH_KEEPALIVE_TIME           (15 * 60)                     // 15 minutes
+#if !defined(MESH_TIMESYNC_TIME)
+#define MESH_TIMESYNC_TIME            (15 * 60)                    // 15 minutes
 #endif
-#define MESH_KEEPALIVE_SWEEP_TIME     (4 * MESH_KEEPALIVE_TIME)     // 60 minutes
+#define MESH_TIMESYNC_SWEEP_TIME      (2 * MESH_TIMESYNC_TIME)     // 30 minutes
 
 //
 // Advertising
@@ -152,11 +153,12 @@ typedef struct
 } __attribute__((packed)) Mesh_Key;
 
 // Some pre-defined admin keys
-#define _MESH_KEY_KEEPALIVE           { .admin = 1, .wrlocal = 1, .key = 0 }
-#define _MESH_KEY_INFO                { .admin = 1, .rdonly  = 1, .key = 1 }
-#define _MESH_KEY_LTK_FIRST           { .admin = 1, .key = 0x10 }
-#define _MESH_KEY_LTK_LAST            { .admin = 1, .key = 0x18 }
-#define _MESH_KEY_INVALID             { .admin = 1, .key = 0xFFFF }
+#define _MESH_KEY_KEEPALIVE           { .admin = 1, .wrlocal = 1, .key = 0      }
+#define _MESH_KEY_INFO                { .admin = 1, .rdonly  = 1, .key = 1      }
+#define _MESH_KEY_TIME                { .admin = 1,               .key = 2      }
+#define _MESH_KEY_LTK_FIRST           { .admin = 1,               .key = 0x10   }
+#define _MESH_KEY_LTK_LAST            { .admin = 1,               .key = 0x18   }
+#define _MESH_KEY_INVALID             { .admin = 1,               .key = 0xFFFF }
 
 typedef unsigned char Mesh_Version;
 #define MESH_VERSION_DIFF             ((Mesh_Version)0x7F)
@@ -321,6 +323,12 @@ typedef struct Mesh_Node
 #define MESH_NODEID_FREE(NODE, ID) \
   (!((NODE)->ids[ID].flag.neighbor || (NODE)->ids[ID].flag.ukv || (NODE)->ids[ID].flag.blacklisted))
 
+typedef struct Mesh_TimeStatum
+{
+  Mesh_Tick     time;
+  unsigned char stratum;
+} __attribute__((packed)) Mesh_TimeStratum;
+
 //
 // Mesh events.
 //
@@ -380,6 +388,18 @@ typedef enum Mesh_Payload
 } Mesh_Payload;
 
 //
+// Mesh node failure reasons.
+//
+typedef enum Mesh_Reason
+{
+  MESH_REASON_OK = 0,
+  MESH_REASON_RETRIES,
+  MESH_REASON_KEEPALIVE,
+  MESH_REASON_BADRSSI,
+  MESH_REASON_INVALID,
+} Mesh_Reason;
+
+//
 // Mesh processor. This event driver function manage the mesh.
 //
 extern Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, Mesh_RSSI rssi);
@@ -389,14 +409,15 @@ extern Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char
 //
 extern Mesh_Status Mesh_GetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char* length);
 extern Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length);
+extern Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits);
 
 //
 // Manage neighbors and nodes in the mesh.
 //
 extern Mesh_Status Mesh_FindNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** neighbor);
 extern Mesh_Status Mesh_AddNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** neighbor);
-extern Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, unsigned char error);
-extern Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id);
+extern Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, Mesh_Reason reason);
+extern Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id, Mesh_Reason reason);
 
 //
 // Misc.

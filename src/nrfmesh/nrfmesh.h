@@ -29,5 +29,6 @@ extern void nrfmesh_init(void);
 extern void nrfmesh_start(void);
 extern void nrfmesh_ble_event(ble_evt_t* event);
 extern void nrfmesh_timer_handler(void);
+extern void nrfmesh_meshchange(Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length);
 
 #endif /* NRF51MESH_H_ */

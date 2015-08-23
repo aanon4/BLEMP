@@ -9,7 +9,6 @@
 #include "mesh.h"
 #include "meshsystem.h"
 
-static Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits);
 static Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, Mesh_Version version, Mesh_ChangeBits changebits);
 static Mesh_ChangeBits Mesh_GetChangeBits(Mesh_Node* node);
 #if ENABLE_MESH_TRIMMING
@@ -17,6 +16,7 @@ static Mesh_Status Mesh_Trim(Mesh_Node* node, unsigned char space);
 #endif
 
 static const Mesh_Key MESH_KEY_INVALID = _MESH_KEY_INVALID;
+static const Mesh_Key MESH_KEY_TIME = _MESH_KEY_TIME;
 
 //
 // Mesh Manager
@@ -71,7 +71,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 
       case MESH_EVENT_KEEPALIVE:
         node->keepalive++;
-        if (node->keepalive >= MESH_KEEPALIVE_SWEEP_TIME / MESH_KEEPALIVE_TIME)
+        if (node->keepalive >= MESH_TIMESYNC_SWEEP_TIME / MESH_TIMESYNC_TIME)
         {
           // Forget nodes we've not heard from in a long time (skip SELF and GLOBAL)
           node->keepalive = 0;
@@ -81,7 +81,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
             {
               if (!node->ids[id].flag.client)
               {
-                Mesh_ForgetNodeId(node, id);
+                Mesh_ForgetNodeId(node, id, MESH_REASON_KEEPALIVE);
               }
             }
             else
@@ -92,7 +92,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         }
 
         // If we synced recently we don't need to do it now
-        if (Mesh_System_Tick() - node->lastsync > MESH_KEEPALIVE_TIME)
+        if (Mesh_System_Tick() - node->lastsync < MESH_TIMESYNC_TIME)
         {
           break;
         }
@@ -330,17 +330,17 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
             }
             else if (neighbor->retries >= MESH_MAX_RETRIES)
             {
-              Mesh_ForgetNeighbor(node, neighbor, 1);
+              Mesh_ForgetNeighbor(node, neighbor, MESH_REASON_RETRIES);
             }
             else if (!neighbor->flag.valid)
             {
-              Mesh_ForgetNeighbor(node, neighbor, 0);
+              Mesh_ForgetNeighbor(node, neighbor, MESH_REASON_INVALID);
             }
             else if (neighbor->flag.badrssi)
             {
               if (node->neighbors.count > MESH_NEIGHBOR_LIMIT)
               {
-                Mesh_ForgetNeighbor(node, neighbor, 0);
+                Mesh_ForgetNeighbor(node, neighbor, MESH_REASON_BADRSSI);
               }
               else
               {
@@ -506,7 +506,16 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                     {
                       pos += node->sync.value.length;
                     syncnow:;
-                      status = Mesh_SyncValue(node, node->sync.id, node->sync.value.key, value, node->sync.value.length, node->sync.value.version, node->sync.changebits);
+                      // Handle the time key a little specially
+                      if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.value.length == sizeof(Mesh_TimeStratum) && Mesh_System_memcmp(&node->sync.value.key, &MESH_KEY_TIME, sizeof(Mesh_Key)) == 0)
+                      {
+                        Mesh_System_SetTimeStratum(node, node->sync.neighbor->id, (Mesh_TimeStratum*)value);
+                        status = MESH_NOCHANGE;
+                      }
+                      else
+                      {
+                        status = Mesh_SyncValue(node, node->sync.id, node->sync.value.key, value, node->sync.value.length, node->sync.value.version, node->sync.changebits);
+                      }
                       if (status == MESH_NOTFOUND)
                       {
                         // A new key, so we create it
@@ -766,6 +775,11 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
               *(Mesh_Version*)&node->sync.buffer[pos + sizeof(Mesh_Key)] = node->sync.ukv->version;
               node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version)] = node->sync.ukv->length;
               pos += sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1;
+              // Time key special case - update immediately before use
+              if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.ukv->length == sizeof(Mesh_TimeStratum) && Mesh_System_memcmp(&node->sync.ukv->key, &MESH_KEY_TIME, sizeof(Mesh_Key)) == 0)
+              {
+                Mesh_System_GetTimeStratum(node, node->sync.neighbor->id, (Mesh_TimeStratum*)MESH_UKV_VALUE(node->sync.ukv));
+              }
               if (pos >= MESH_MAX_WRITE_SIZE)
               {
                 break;
@@ -848,17 +862,17 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 // Invalid, old and rssi distant neighbors are removed
                 if (neighbor->retries >= MESH_MAX_RETRIES)
                 {
-                  Mesh_ForgetNeighbor(node, neighbor, 1);
+                  Mesh_ForgetNeighbor(node, neighbor, MESH_REASON_RETRIES);
                 }
                 else if (!neighbor->flag.valid)
                 {
-                  Mesh_ForgetNeighbor(node, neighbor, 0);
+                  Mesh_ForgetNeighbor(node, neighbor, MESH_REASON_INVALID);
                 }
                 else if (neighbor->flag.badrssi)
                 {
                   if (node->neighbors.count > MESH_NEIGHBOR_LIMIT)
                   {
-                    Mesh_ForgetNeighbor(node, neighbor, 0);
+                    Mesh_ForgetNeighbor(node, neighbor, MESH_REASON_BADRSSI);
                   }
                   else
                   {
@@ -924,7 +938,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
 // Application should use the more generic Mesh_SetValue function below. This one allows more specific control over versioning, etc. and
 // is used interally.
 //
-static Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits)
+Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigned char* value, unsigned char length, unsigned char create, Mesh_Version version, Mesh_ChangeBits changebits)
 {
   Mesh_UKV* values = node->values.values;
   unsigned short count;
@@ -1224,9 +1238,9 @@ Mesh_Status Mesh_AddNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** ne
 // being another mesh node, then this is not an error. If a neighbor is forgotten because it can
 // no longer be reached, this is an error.
 // For errors, we attempt send any pending changes to other neighbors and hope they can sync them to
-// their final desinations. We also schedule a discovery to reconnect with the mesh.
+// their final destinations. We also schedule a discovery to reconnect with the mesh.
 //
-Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, unsigned char error)
+Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, Mesh_Reason reason)
 {
   // Remove neighbor from the changebits
   Mesh_NodeId id = neighbor->id;
@@ -1244,7 +1258,7 @@ Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, unsign
       // error then we still need to try to sync the value.
       // If the UKV has change bits for other nodes, we know we'll send it out. Otherwise, we set
       // some change bits and bump the version so we know it'll get synced out.
-      if (error && !(ukv->changebits & unmask))
+      if (reason == MESH_REASON_RETRIES && !(ukv->changebits & unmask))
       {
         ukv->changebits = node->neighbors.changebits;
         ukv->version++;
@@ -1268,7 +1282,7 @@ Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, unsign
   node->neighbors.count--;
 
   // For error node, blacklist, else if the node has no UKVs we can remove it.
-  if (error)
+  if (reason == MESH_REASON_RETRIES)
   {
     node->ids[id].flag.ping = 1;
     node->ids[id].flag.blacklisted = 1;
@@ -1289,7 +1303,7 @@ Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, unsign
 // the values back from a neighbor unless they've changed (which means the node was alive
 // after all).
 //
-Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id)
+Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id, Mesh_Reason reason)
 {
   // Remove any values with this id
   Mesh_UKV* ukv = node->values.values;
@@ -1323,7 +1337,7 @@ Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id)
   {
     if (neighbor->id == id)
     {
-      Mesh_ForgetNeighbor(node, neighbor, 0);
+      Mesh_ForgetNeighbor(node, neighbor, reason);
       return MESH_OK;
     }
   }
