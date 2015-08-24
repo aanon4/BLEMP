@@ -416,9 +416,25 @@ void nrfmesh_ble_event(ble_evt_t* event)
 			break;
 
 		case BLE_GAP_TIMEOUT_SRC_CONN:
-			STAT_RECORD_INC(connection_timeout_count);
-			Mesh_Process(&mesh_node, MESH_EVENT_CONNECTIONFAILED, 0, 0);
-			break;
+		{
+		  STAT_RECORD_INC(connection_timeout_count);
+		  // Flag each neighbor we failed to connect to
+		  uint8_t addr_count = 0;
+		  for (Mesh_Neighbor* neighbor = &mesh_node.neighbors.neighbors[0]; neighbor < &mesh_node.neighbors.neighbors[MESH_MAX_NEIGHBORS] && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor++)
+		  {
+			  if (neighbor->flag.valid && !neighbor->flag.retry && (mesh_node.sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(&mesh_node, neighbor)))
+			  {
+			    neighbor->flag.retry = 1;
+			    neighbor->retries++;
+			    if (!mesh_node.ids[neighbor->id].flag.client)
+			    {
+			      addr_count++;
+			    }
+			  }
+		  }
+		  Mesh_Process(&mesh_node, MESH_EVENT_CONNECTIONFAILED, 0, 0);
+		  break;
+		}
 
 		default:
 			break;
@@ -473,7 +489,7 @@ void Mesh_System_PeripheralDone(Mesh_Node* node)
 	advertising_start();
 }
 
-void Mesh_System_Connect(Mesh_Node* node)
+Mesh_Status Mesh_System_Connect(Mesh_Node* node)
 {
 	uint32_t err_code;
 
@@ -498,10 +514,10 @@ void Mesh_System_Connect(Mesh_Node* node)
   ble_gap_irk_t* p_irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT];
   uint8_t addr_count = 0;
   uint8_t irk_count = 0;
-  Mesh_Neighbor* neighbor = mesh_node.sync.neighbor;
-  for (uint8_t neighbor_count = MESH_MAX_NEIGHBORS; neighbor_count && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor_count--)
+
+  for (Mesh_Neighbor* neighbor = &node->neighbors.neighbors[0]; neighbor < &node->neighbors.neighbors[MESH_MAX_NEIGHBORS] && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor++)
   {
-    if (neighbor->flag.valid && !neighbor->flag.retry && (mesh_node.sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(&mesh_node, neighbor)))
+    if (neighbor->flag.valid && !neighbor->flag.retry && (mesh_node.sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor)))
     {
       if (!mesh_node.ids[neighbor->id].flag.client)
       {
@@ -522,10 +538,12 @@ void Mesh_System_Connect(Mesh_Node* node)
         }
       }
     }
-    if (--neighbor < &mesh_node.neighbors.neighbors[0])
-    {
-      neighbor = &mesh_node.neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
-    }
+  }
+
+  // If we have nothing to do, return now
+  if (irk_count == 0 && addr_count == 0)
+  {
+    return MESH_NOTFOUND;
   }
 
   // If we have no IRKs this time we force an empty one.
@@ -555,6 +573,8 @@ void Mesh_System_Connect(Mesh_Node* node)
   };
   err_code = sd_ble_gap_connect(NULL, &scan, &conn);
   APP_ERROR_CHECK(err_code);
+
+  return MESH_OK;
 }
 
 void Mesh_System_Disconnect(Mesh_Node* node)

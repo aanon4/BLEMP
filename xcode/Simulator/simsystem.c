@@ -45,40 +45,64 @@ void Mesh_System_ValueChanged(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, uns
 {
 }
 
-void Mesh_System_Connect(Mesh_Node* node)
+Mesh_Status Mesh_System_Connect(Mesh_Node* node)
 {
   Sim_Q* q = NODE_TO_NATIVE(node);
   assert(q->ismaster == 1);
   assert(q->connection == NULL);
-  Mesh_NodeId target = node->sync.neighbor->id;
-  for (int i = 0; i < NR_NODES; i++)
+
+  unsigned char found = 0;
+  for (Mesh_Neighbor* neighbor = &node->neighbors.neighbors[0]; neighbor < &node->neighbors.neighbors[MESH_MAX_NEIGHBORS]; neighbor++)
   {
-    if (memcmp(&node->ids[target].address, &nodes[i].ids[MESH_NODEID_SELF].address, sizeof(Mesh_NodeAddress)) == 0)
+    if (neighbor->flag.valid && !neighbor->flag.retry && (node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor)))
     {
-      // Found
-      Sim_Q* p = &natives[i];
-      if (nodes[i].state != MESH_STATE_IDLE || p->connection != NULL)
+      for (int i = 0; i < NR_NODES; i++)
       {
-        // Target is busy - so we fail to connect
-        q->event = MESH_EVENT_CONNECTIONFAILED;
-        q->arg = 0;
-        return;
+        if (memcmp(&node->ids[neighbor->id].address, &nodes[i].ids[MESH_NODEID_SELF].address, sizeof(Mesh_NodeAddress)) == 0)
+        {
+          // Found
+          found = 1;
+          Sim_Q* p = &natives[i];
+          if (nodes[i].state == MESH_STATE_IDLE && p->connection == NULL)
+          {
+            // Connect
+            assert(p->ismaster == 0);
+            assert(p->connection == NULL);
+            q->connection = &nodes[i];
+            p->connection = node;
+            assert(p->event == MESH_EVENT_NULL);
+            p->event = MESH_EVENT_INCOMINGCONNECTION;
+            p->arg = Mesh_InternNodeId(&nodes[i], &node->ids[MESH_NODEID_SELF].address, 1);
+            assert(q->event == MESH_EVENT_NULL);
+            q->event = MESH_EVENT_CONNECTED;
+            q->arg = 0;
+            node->sync.neighbor = neighbor;
+            return MESH_OK;
+          }
+        }
       }
-      // Connect
-      assert(p->ismaster == 0);
-      assert(p->connection == NULL);
-      q->connection = &nodes[i];
-      p->connection = node;
-      assert(p->event == MESH_EVENT_NULL);
-      p->event = MESH_EVENT_INCOMINGCONNECTION;
-      p->arg = Mesh_InternNodeId(&nodes[i], &node->ids[MESH_NODEID_SELF].address, 1);
-      assert(q->event == MESH_EVENT_NULL);
-      q->event = MESH_EVENT_CONNECTED;
-      q->arg = 0;
-      return;
     }
   }
-  assert("Unknown Node" == 0);
+
+  // If we found potential connections but could not currently connect (everyone is busy), we say this connection failed.
+  // If we found no potential connections, we return MESH_NOTFOUND since we never attempted a connection
+  if (found)
+  {
+    // Target is busy - so we fail to connect. Mark all failures
+    for (Mesh_Neighbor* neighbor = &node->neighbors.neighbors[0]; neighbor < &node->neighbors.neighbors[MESH_MAX_NEIGHBORS]; neighbor++)
+    {
+      if (neighbor->flag.valid && !neighbor->flag.retry && (node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor)))
+      {
+        neighbor->flag.retry = 1;
+        neighbor->retries++;
+      }
+    }
+    q->event = MESH_EVENT_CONNECTIONFAILED;
+    q->arg = 0;
+    return MESH_OK;
+  }
+
+  return MESH_NOTFOUND;
 }
 
 void Mesh_System_Disconnect(Mesh_Node* node)

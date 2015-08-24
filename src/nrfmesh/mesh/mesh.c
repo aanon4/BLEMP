@@ -217,59 +217,24 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           goto nosync;
         }
 #endif
+      lookforsync:;
+        node->sync.remainingbits = Mesh_GetChangeBits(node);
+        if (node->sync.remainingbits && Mesh_System_Connect(node) == MESH_OK)
         {
-        lookforsync:;
-          node->sync.remainingbits = Mesh_GetChangeBits(node);
-          // If we have a set connection priority, we do that first
-          if (node->sync.priority == MESH_NODEID_INVALID || Mesh_FindNeighbor(node, node->sync.priority, &node->sync.neighbor) != MESH_OK)
-          {
-            // If we have UKVs for clients, send to clients
-            Mesh_ChangeBits cbits = node->sync.remainingbits & node->neighbors.clientbits;
-            if (cbits)
-            {
-              // Search neighbors for a client which we haven't tried to sync with recently. Once retries > 0 we
-              // no longer prefer clients over other nodes
-              for (unsigned char id = 0; id < MESH_MAX_NEIGHBORS; id++)
-              {
-                if ((cbits & (1 << id)) && node->neighbors.neighbors[id].retries == 0)
-                {
-                  node->sync.neighbor = &node->neighbors.neighbors[id];
-                  goto syncclient;
-                }
-              }
-            }
-            unsigned char id = 0;
-            Mesh_System_RandomNumber(&id, sizeof(id));
-            node->sync.neighbor = &node->neighbors.neighbors[id % MESH_MAX_NEIGHBORS];
-          syncclient:;
-          }
-          node->sync.priority = MESH_NODEID_INVALID;
-
-          for (unsigned char count = MESH_MAX_NEIGHBORS; count; count--)
-          {
-            if (node->sync.neighbor->flag.valid && !node->sync.neighbor->flag.retry && (node->sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, node->sync.neighbor)))
-            {
-              // Found one
-              node->state = MESH_STATE_SYNCMASTERCONNECTING;
-              Mesh_System_Connect(node);
-              goto foundsync;
-            }
-            if (--node->sync.neighbor < &node->neighbors.neighbors[0])
-            {
-              node->sync.neighbor = &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
-            }
-          }
+          node->state = MESH_STATE_SYNCMASTERCONNECTING;
         }
+        else
+        {
 #if ENABLE_MESH_MALLOC
-        Mesh_System_Free(node->sync.value.buffer);
-        node->sync.value.buffer = NULL;
+          Mesh_System_Free(node->sync.value.buffer);
+          node->sync.value.buffer = NULL;
 #endif
-      nosync:;
-        // No one left changed.
-        node->sync.neighbor = NULL;
-        node->state = MESH_STATE_SWITCHTOPERIPHERAL;
-        Mesh_System_PeripheralMode(node);
-      foundsync:;
+        nosync:;
+          // No one left changed.
+          node->sync.neighbor = NULL;
+          node->state = MESH_STATE_SWITCHTOPERIPHERAL;
+          Mesh_System_PeripheralMode(node);
+        }
         break;
 
       default:
@@ -378,13 +343,17 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
   case MESH_STATE_SYNCMASTERCONNECTING:
     switch (event)
     {
-      case MESH_EVENT_CONNECTIONFAILED:
-      case MESH_EVENT_DISCONNECTED:
-      case MESH_EVENT_IOFAILED:
+    case MESH_EVENT_DISCONNECTED:
+    case MESH_EVENT_IOFAILED:
       mastersynctimeout:;
-        // Failed to connect/keep connected. Try again later
+        // Failed to stay connected. Try again later
         node->sync.neighbor->flag.retry = 1;
         node->sync.neighbor->retries++;
+        // Fall through
+
+      case MESH_EVENT_CONNECTIONFAILED:
+        // Failed to connect. Try again later
+        // Retry flagging is handled in the connect layer because it manages the multi-connect process.
         node->sync.neighbor = NULL;
         goto lookforsync;
 
@@ -891,7 +860,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 changes = 1;
                 if (Mesh_FindNeighbor(node, ukv->id, &neighbor) == MESH_OK && (ukv->changebits & MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor)))
                 {
-                  node->sync.priority = ukv->id;
                   break;
                 }
               }
@@ -1101,11 +1069,6 @@ Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
       break;
     }
   }
-  Mesh_Neighbor* neighbor;
-  if (node->sync.priority == MESH_NODEID_INVALID && Mesh_FindNeighbor(node, id, &neighbor) == MESH_OK)
-  {
-    node->sync.priority = id;
-  }
   return Mesh_SetValueInternal(node, id, key, value, length, 1, 1, node->neighbors.changebits);
 }
 
@@ -1269,12 +1232,6 @@ Mesh_Status Mesh_ForgetNeighbor(Mesh_Node* node, Mesh_Neighbor* neighbor, Mesh_R
       }
     }
   }
-  
-  // Invalidate any matching priority
-  if (node->sync.priority == id)
-  {
-    node->sync.priority = MESH_NODEID_INVALID;
-  }
 
   // Clear the neighbor
   Mesh_System_memset(neighbor, 0, sizeof(Mesh_Neighbor));
@@ -1309,26 +1266,25 @@ Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id, Mesh_Reason reaso
   Mesh_UKV* ukv = node->values.values;
   for (unsigned short count = node->values.count; count; count--, ukv++)
   {
-	// Found the beginning
-	if (ukv->id == id)
-	{
-	  // Look for the end
-	  unsigned short i;
-	  for (i = 0; i < count && ukv[i].id == id; i++)
-	  {
+    // Found the beginning
+    if (ukv->id == id)
+    {
+      // Look for the end
+      unsigned short i;
+      for (i = 0; i < count && ukv[i].id == id; i++)
+      {
 #if ENABLE_MESH_MALLOC
-		if (!MESH_UKV_CANINLINE(ukv[i].length))
-		{
-		  Mesh_System_Free(ukv[i].data.ptr);
-		}
+        if (!MESH_UKV_CANINLINE(ukv[i].length))
+        {
+          Mesh_System_Free(ukv[i].data.ptr);
+        }
 #endif
-	  }
-
-	  // Remove the entries between the two
-	  Mesh_System_memmove(ukv, ukv + i, sizeof(Mesh_UKV) * (count - i));
-	  node->values.count -= i;
-	  break;
-	}
+      }
+      // Remove the entries between the two
+      Mesh_System_memmove(ukv, ukv + i, sizeof(Mesh_UKV) * (count - i));
+      node->values.count -= i;
+      break;
+    }
   }
 
   // Remove any neighbor with this id
@@ -1428,7 +1384,6 @@ Mesh_Status Mesh_NodeReset(Mesh_Node* node, Mesh_NodeAddress* address)
 {
   Mesh_System_memset(node, 0, sizeof(Mesh_Node));
   node->state = MESH_STATE_IDLE;
-  node->sync.priority = MESH_NODEID_INVALID;
 
   Mesh_InternNodeId(node, address, 1);
   node->ids[MESH_NODEID_SELF].flag.ukv = 1; // Force SELF it always be in use

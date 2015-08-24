@@ -293,7 +293,6 @@ typedef struct Mesh_Node
   {
     Mesh_Neighbor*  neighbor;
     Mesh_NodeId     id;
-    Mesh_NodeId     priority;
     Mesh_ChangeBits neighborchangebit;
     Mesh_ChangeBits changebits;
     Mesh_ChangeBits remainingbits;
