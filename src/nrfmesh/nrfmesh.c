@@ -18,10 +18,10 @@
 #include "mesh/meshsystem.h"
 
 #include "services/gap.h"
-#include "services/timer.h"
 
 #include "uuids.h"
 #include "advertising.h"
+#include "timer.h"
 #include "nrfmesh.h"
 #include "secure.h"
 #include "meshinfo.h"
@@ -633,12 +633,7 @@ void Mesh_System_ScheduleDiscovery(Mesh_Node* node)
 
 Mesh_Tick Mesh_System_Tick(void)
 {
-	uint32_t err_code;
-	uint32_t ticks;
-	err_code = app_timer_cnt_get(&ticks);
-	APP_ERROR_CHECK(err_code);
-
-	return (Mesh_Tick)(ticks / 1000); // Tick in seconds
+	return (Mesh_Tick)(meshtime_tick() / 1000); // Tick in seconds
 }
 
 void Mesh_System_RandomNumber(unsigned char* buffer, unsigned char length)

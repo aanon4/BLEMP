@@ -212,11 +212,11 @@ void Mesh_System_RandomNumber(unsigned char* buffer, unsigned char length)
   }
 }
 
-void Mesh_System_GetTimeStratum(Mesh_Node* node, Mesh_NodeId id, Mesh_TimeStratum* localtime)
+void Mesh_System_GetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* localtime)
 {
 }
 
-void Mesh_System_SetTimeStratum(Mesh_Node* node, Mesh_NodeId id, Mesh_TimeStratum* remotetime)
+void Mesh_System_SetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* remotetime)
 {
 }
 

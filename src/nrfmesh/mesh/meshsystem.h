@@ -63,7 +63,7 @@ extern unsigned char* Mesh_System_Malloc(unsigned short length);
 extern void Mesh_System_Free(unsigned char* memory);
 #endif
 #endif
-extern void Mesh_System_GetTimeStratum(Mesh_Node* node, Mesh_NodeId id, Mesh_TimeStratum* localtime);
-extern void Mesh_System_SetTimeStratum(Mesh_Node* node, Mesh_NodeId id, Mesh_TimeStratum* remotetime);
+extern void Mesh_System_GetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* localtime);
+extern void Mesh_System_SetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* remotetime);
 
 #endif
