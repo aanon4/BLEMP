@@ -15,5 +15,6 @@
 #define	ONEMINUTE_TIMER_MS		(60 * 1000) // 1 minute
 
 extern void oneminutetimer_init(void);
+extern void oneminutetimer_other_timer_handlers(void);
 
 #endif /* ONEMINUTETIMER_H_ */

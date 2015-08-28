@@ -16,8 +16,7 @@
 #include <app_scheduler.h>
 #include <nrf_soc.h>
 
-#include "services/timer.h"
-
+#include "timer.h"
 #include "advertising.h"
 #include "nrfmesh.h"
 #include "secure.h"

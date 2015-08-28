@@ -19,14 +19,13 @@
 #include "services/gap.h"
 #include "services/devinfo.h"
 #include "services/connparams.h"
-#include "services/oneminutetimer.h"
 
 #include "nrfmesh/uuids.h"
 #include "nrfmesh/advertising.h"
+#include "nrfmesh/oneminutetimer.h"
 #include "nrfmesh/nrfmesh.h"
 #include "nrfmesh/secure.h"
 #include "nrfmesh/statistics.h"
-#include "nrfmesh/keepalive.h"
 
 #include "sensors/temperature.h"
 #include "sensors/access.h"
@@ -86,6 +85,11 @@ static void sys_evt_dispatch(uint32_t sys_evt)
 void Mesh_System_ValueChanged(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, uint8_t* value, uint8_t length)
 {
   secure_meshchange(id, key, value, length);
+}
+
+void oneminutetimer_other_timer_handlers(void)
+{
+  temperature_timer_handler();
 }
 
 /*
