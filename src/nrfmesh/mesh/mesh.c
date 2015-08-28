@@ -476,9 +476,9 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                       pos += node->sync.value.length;
                     syncnow:;
                       // Handle the time key a little specially
-                      if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.value.length == sizeof(Mesh_TimeStratum) && Mesh_System_memcmp(&node->sync.value.key, &MESH_KEY_TIME, sizeof(Mesh_Key)) == 0)
+                      if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.value.length == sizeof(Mesh_Clock) && MESH_KEY_MATCH(node->sync.value.key, MESH_KEY_TIME))
                       {
-                        Mesh_System_SetTimeStratum(node, node->sync.neighbor->id, (Mesh_TimeStratum*)value);
+                        Mesh_System_SetClock(node, node->sync.neighbor->id, (Mesh_Clock*)value);
                         status = MESH_NOCHANGE;
                       }
                       else
@@ -745,9 +745,9 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
               node->sync.buffer[pos + sizeof(Mesh_Key) + sizeof(Mesh_Version)] = node->sync.ukv->length;
               pos += sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1;
               // Time key special case - update immediately before use
-              if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.ukv->length == sizeof(Mesh_TimeStratum) && Mesh_System_memcmp(&node->sync.ukv->key, &MESH_KEY_TIME, sizeof(Mesh_Key)) == 0)
+              if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.ukv->length == sizeof(Mesh_Clock) && MESH_KEY_MATCH(node->sync.ukv->key, MESH_KEY_TIME))
               {
-                Mesh_System_GetTimeStratum(node, node->sync.neighbor->id, (Mesh_TimeStratum*)MESH_UKV_VALUE(node->sync.ukv));
+                Mesh_System_GetClock(node, node->sync.neighbor->id, (Mesh_Clock*)MESH_UKV_VALUE(node->sync.ukv));
               }
               if (pos >= MESH_MAX_WRITE_SIZE)
               {
@@ -917,7 +917,7 @@ Mesh_Status Mesh_SetValueInternal(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key,
 
   for (count = node->values.count; count; count--, values++)
   {
-    if (values->id == id && Mesh_System_memcmp(&values->key, &key, sizeof(Mesh_Key)) == 0)
+    if (values->id == id && MESH_KEY_MATCH(values->key, key))
     {
       if (Mesh_System_memcmp(MESH_UKV_VALUE(values), value, values->length))
       {
@@ -1019,7 +1019,7 @@ Mesh_Status Mesh_GetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
   Mesh_UKV* values = node->values.values;
   for (unsigned short count = node->values.count; count; count--, values++)
   {
-    if (values->id == id && Mesh_System_memcmp(&values->key, &key, sizeof(Mesh_Key)) == 0)
+    if (values->id == id && MESH_KEY_MATCH(values->key, key))
     {
       if (value == NULL)
       {
@@ -1054,7 +1054,7 @@ Mesh_Status Mesh_SetValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, unsigne
   Mesh_UKV* values = node->values.values;
   for (unsigned short count = node->values.count; count; count--, values++)
   {
-    if (values->id == id && values->key.key == key.key && values->key.sub == key.sub && values->key.admin == key.admin)
+    if (values->id == id && MESH_KEY_MATCH(values->key, key))
     {
       // write-local needs to match
       if (values->key.wrlocal != key.wrlocal)
@@ -1083,7 +1083,7 @@ static Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key,
 
   for (count = node->values.count; count; count--, current++)
   {
-    if (current->id == id && Mesh_System_memcmp(&current->key, &key, sizeof(Mesh_Key)) == 0)
+    if (current->id == id && MESH_KEY_MATCH(current->key, key))
     {
       // Found a matching id/key. Now determine if we need to update the value
       unsigned char* ptr = MESH_UKV_VALUE(current);
@@ -1124,7 +1124,7 @@ static Mesh_Status Mesh_SyncValue(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key,
 }
 
 //
-// Attempt to find an existing neigbor.
+// Attempt to find an existing neighbor.
 //
 Mesh_Status Mesh_FindNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** neighbor)
 {

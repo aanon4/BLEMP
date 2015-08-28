@@ -105,12 +105,15 @@
 //
 // Nodes periodically send timesync messages. If nodes messages aren't seen after 2 sweeps the node
 // will be forgotten (assumed removed or failed). Timesync messages keep nodes on the same approximate
-// global time.
+// global time. We update the time frequently, but forcibly sync the time less frequently.
 //
 #if !defined(MESH_TIMESYNC_TIME)
 #define MESH_TIMESYNC_TIME            (15 * 60)                    // 15 minutes
 #endif
 #define MESH_TIMESYNC_SWEEP_TIME      (2 * MESH_TIMESYNC_TIME)     // 30 minutes
+#if !defined(MESH_TIMESYNC_UPDATE)
+#define MESH_TIMESYNC_UPDATE          (5 * 60)                     // 5 minutes
+#endif
 
 //
 // Advertising
@@ -156,9 +159,12 @@ typedef struct
 #define _MESH_KEY_KEEPALIVE           { .admin = 1, .wrlocal = 1, .key = 0      }
 #define _MESH_KEY_INFO                { .admin = 1, .rdonly  = 1, .key = 1      }
 #define _MESH_KEY_TIME                { .admin = 1,               .key = 2      }
+#define _MESH_KEY_BATTERY             { .admin = 1, .wrlocal = 1, .key = 3      }
 #define _MESH_KEY_LTK_FIRST           { .admin = 1,               .key = 0x10   }
 #define _MESH_KEY_LTK_LAST            { .admin = 1,               .key = 0x18   }
 #define _MESH_KEY_INVALID             { .admin = 1,               .key = 0xFFFF }
+
+#define MESH_KEY_MATCH(A, B)          ((A).key == (B).key && (A).admin == (B).admin && (A).sub == (B).sub)
 
 typedef unsigned char Mesh_Version;
 #define MESH_VERSION_DIFF             ((Mesh_Version)0x7F)
@@ -166,7 +172,7 @@ typedef unsigned char Mesh_Version;
 typedef unsigned char Mesh_ChangeBits; // sizeof(Mesh_ChangeBits) == MESH_MAX_NEIGHBORS / 8
 #define MESH_NEIGHBOR_TO_CHANGEBIT(NODE, NEIGHBOR)  ((Mesh_ChangeBits)(1 << ((NEIGHBOR) - ((NODE)->neighbors.neighbors))))
 
-typedef unsigned long Mesh_Tick;
+typedef unsigned long long Mesh_Tick;
 typedef signed char Mesh_RSSI;
 #define MESH_RSSI_WORST               (-128)
 
@@ -247,8 +253,8 @@ typedef enum Mesh_State
 typedef struct Mesh_Node
 {
   Mesh_State    state;
-  Mesh_Tick     lastsync;
   unsigned char keepalive;
+  Mesh_Tick     lastsync;
 
   //
   // All nodes known to this node.
@@ -322,11 +328,11 @@ typedef struct Mesh_Node
 #define MESH_NODEID_FREE(NODE, ID) \
   (!((NODE)->ids[ID].flag.neighbor || (NODE)->ids[ID].flag.ukv || (NODE)->ids[ID].flag.blacklisted))
 
-typedef struct Mesh_TimeStatum
+typedef struct Mesh_Clock
 {
-  Mesh_Tick     time;
-  unsigned char stratum;
-} __attribute__((packed)) Mesh_TimeStratum;
+  unsigned int  time;
+  unsigned char confidence;
+} __attribute__((packed)) Mesh_Clock;
 
 //
 // Mesh events.

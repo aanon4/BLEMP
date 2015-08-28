@@ -90,14 +90,18 @@ void access_ble_event(ble_evt_t* event)
 			struct Entry* ptr = (struct Entry*)buffer;
 			for (; (uint8_t*)ptr < &buffer[sizeof(buffer)]; ptr++, idx++)
 			{
-				Mesh_NodeId id;
-				uint8_t len;
-				len = sizeof(ptr->temperature);
-				if (Mesh_GetNthValue(&mesh_node, MESH_KEY_TEMPERATURE, idx, &id, ptr->temperature, &len) != MESH_OK)
+				uint8_t count = idx;
+				for (Mesh_UKV* value = &mesh_node.values.values[mesh_node.values.count - 1]; value >= &mesh_node.values.values[0]; value--)
 				{
-					break;
+				  if (MESH_KEY_MATCH(value->key, MESH_KEY_TEMPERATURE) && --count == 0)
+				  {
+		        memmove(ptr->temperature, MESH_UKV_VALUE(value), sizeof(ptr->temperature));
+		        memmove(&ptr->address, &mesh_node.ids[value->id].address, sizeof(Mesh_NodeAddress));
+				    goto found;
+				  }
 				}
-				memmove(&ptr->address, Mesh_GetNodeAddress(&mesh_node, id), sizeof(Mesh_NodeAddress));
+				break;
+			found:;
 			}
 			uint8_t* start = buffer + offset % sizeof(struct Entry);
 			ble_gatts_rw_authorize_reply_params_t reply =
