@@ -50,6 +50,7 @@ void nrfmesh_init(void)
 	uint32_t err_code;
 
   uuids_init();
+  meshtimer_init();
 
 	// Add Mesh service
 	static const ble_gatts_attr_md_t metadata =

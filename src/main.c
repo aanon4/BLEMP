@@ -22,7 +22,6 @@
 
 #include "nrfmesh/uuids.h"
 #include "nrfmesh/advertising.h"
-#include "nrfmesh/oneminutetimer.h"
 #include "nrfmesh/nrfmesh.h"
 #include "nrfmesh/secure.h"
 #include "nrfmesh/statistics.h"
@@ -87,7 +86,7 @@ void Mesh_System_ValueChanged(Mesh_Node* node, Mesh_NodeId id, Mesh_Key key, uin
   secure_meshchange(id, key, value, length);
 }
 
-void oneminutetimer_other_timer_handlers(void)
+void meshtimer_other_timer_handlers(void)
 {
   temperature_timer_handler();
 }
@@ -131,7 +130,6 @@ int main(void)
 	devinfo_init();
 	advertising_init();
 	conn_params_init();
-	oneminutetimer_init();
 
 	// Mesh setup
   nrfmesh_init();
