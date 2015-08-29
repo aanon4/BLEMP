@@ -373,8 +373,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         node->sync.neighbor->retries = 0;
         node->sync.id = MESH_NODEID_INVALID;
         node->sync.ukv = node->values.values;
-        // Don't send neighbor info to client (they don't use it)
-        node->sync.activeneighbors = node->ids[node->sync.neighbor->id].flag.client ? NULL : &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
+        node->sync.activeneighbors = &node->neighbors.neighbors[MESH_MAX_NEIGHBORS - 1];
         node->sync.count = node->values.count;
         node->sync.value.key = MESH_KEY_INVALID;
         goto writing;
@@ -713,7 +712,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
               node->sync.activeneighbors = NULL;
             }
           }
-          else if (!(node->sync.ukv->changebits & node->sync.neighborchangebit))
+          else if (!((node->sync.ukv->changebits & node->sync.neighborchangebit) || MESH_KEY_MATCH(node->sync.ukv->key, MESH_KEY_TIME)))
           {
             node->sync.ukv++;
             node->sync.count--;
@@ -731,7 +730,7 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           }
           else
           {
-            if (Mesh_System_memcmp(&node->sync.value.key, &MESH_KEY_INVALID, sizeof(Mesh_Key)) == 0)
+            if (MESH_KEY_MATCH(node->sync.value.key, MESH_KEY_INVALID))
             {
               if (pos + 1 + sizeof(Mesh_Key) + sizeof(Mesh_Version) + 1 > MESH_MAX_WRITE_SIZE)
               {

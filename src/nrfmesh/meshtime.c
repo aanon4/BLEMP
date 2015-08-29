@@ -45,12 +45,6 @@ static struct
 
 void meshtime_timer_handler(void)
 {
-  if (TIMER_N_MINUTES(MESH_TIMESYNC_UPDATE / 60))
-  {
-    Mesh_Clock time = {};
-    Mesh_System_GetClock(&mesh_node, MESH_NODEID_SELF, &time);
-    Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, MESH_KEY_TIME, (uint8_t*)&time, sizeof(time));
-  }
   if (TIMER_N_MINUTES(MESH_TIMESYNC_TIME / 60))
   {
     meshtime_state.keepalive++;
@@ -214,10 +208,6 @@ void Mesh_System_SetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* remotetim
     }
   }
   meshtime_state.clock = selected;
-
-  Mesh_Clock time = {};
-  Mesh_System_GetClock(&mesh_node, MESH_NODEID_SELF, &time);
-  Mesh_SetValue(&mesh_node, MESH_NODEID_GLOBAL, MESH_KEY_TIME, (uint8_t*)&time, sizeof(time));
 }
 
 uint32_t meshtime_currenttime(void)
