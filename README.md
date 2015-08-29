@@ -2,7 +2,7 @@
 
 The Bluetooth Low Energy Mesh Protocol is written in C and built to link a randomly distributed set of Bluetooth nodes.
 These nodes form a mesh network, allowing data to be send and received between nodes which are not directly
-connected. The protocol is designed for battery operated devices, using < 100uA per node during normal operation.
+connected. The protocol is designed for battery operated devices, using as little as 20uA per node during normal operation.
 
 # Nordic nRF51822 implementation
 
@@ -20,3 +20,4 @@ The BLEMP demo consists of three parts:
 2. A bluetooth beacon. This allows appropriate client software to know its location in relation to sensors.
 3. The bluetooth mesh network. The temperature readings are sent through the mesh so any node can report
    the temperature of any other node.
+4. Time synchronization to keep all the nodes on the same global time - think NTP for your mesh network.
