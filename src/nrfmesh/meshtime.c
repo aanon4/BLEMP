@@ -23,17 +23,19 @@
 #define MESHTIME_CONFIDENCE_DOWN    (1000 * 60 * 60 * 12) // 12 hours
 #define MESHTIME_SCALEOFFSET        30LL
 
+#define U64(V)                      ((uint64_t)(V))
+
 const Mesh_Key MESH_KEY_KEEPALIVE = _MESH_KEY_KEEPALIVE;
 const Mesh_Key MESH_KEY_TIME = _MESH_KEY_TIME;
 
 typedef struct
 {
-  uint32_t time;              // External time for last update
   Mesh_NodeId id;             // ID of clock
   uint8_t  confidence;        // Confidence clock is correct. The higher the better
+  uint32_t time;              // External time for last update
+  uint32_t tickdiff;          // Ticks used to calculate scale
+  uint32_t scale;             // Number of ticks per second (34.30 fixed point)
   uint64_t tick;              // Tick value for last update
-  uint64_t tickdiff;          // Ticks used to calculate scale
-  uint64_t scale;             // Number of ticks per second (34.30 fixed point)
 } meshtime_clock;
 
 static struct
@@ -126,24 +128,28 @@ found:;
 
   if (clock->time)
   {
-    uint64_t tickdiff = tick - clock->tick;
-    if (tickdiff)
+    uint32_t lastdiff = clock->tickdiff;
+    uint32_t tickdiff = (uint32_t)(tick - lastdiff);
+    if (tickdiff + lastdiff > MESHTIME_CONFIDENCE_UP)
     {
-      uint64_t lastdiff = clock->tickdiff;
-      if (tickdiff + lastdiff > MESHTIME_CONFIDENCE_UP)
-      {
-        lastdiff = tickdiff > MESHTIME_CONFIDENCE_UP ? 0 : MESHTIME_CONFIDENCE_UP - tickdiff;
-      }
-      clock->tickdiff = tickdiff + lastdiff;
-      uint64_t scale = ((((uint64_t)(remotetime->time - clock->time)) << MESHTIME_SCALEOFFSET) + clock->scale * lastdiff) / clock->tickdiff;
+      lastdiff = tickdiff > MESHTIME_CONFIDENCE_UP ? 0 : MESHTIME_CONFIDENCE_UP - tickdiff;
+    }
+    clock->tickdiff = tickdiff + lastdiff;
+    if (clock->tickdiff)
+    {
+      uint32_t scale = (uint32_t)((U64(remotetime->time - clock->time) << MESHTIME_SCALEOFFSET + U64(clock->scale) * U64(lastdiff)) / U64(clock->tickdiff));
 
       // The confidence of the clock reflects how likely it is to be accurate - having the correct time now and the correct time in the future.
       // The higher the value, the likelier it is that the clock is good.
       // The clock can never be better than the remote clock it sync's against, so that limits the confidence. We also limit it if we don't have
       // a sufficiently long sample time. We assume that if subsequent calculations of the scale are the same, the clock is running accurately, but
       // may not have the correct base time yet.
-      uint64_t confidence;
-      if (scale < clock->scale)
+      uint32_t confidence;
+      if (scale == 0 || clock->scale == 0)
+      {
+        confidence = 0;
+      }
+      else if (scale < clock->scale)
       {
         confidence = (255 * scale) / clock->scale;
       }
@@ -153,14 +159,17 @@ found:;
       }
       else
       {
-        confidence = 0;
+        confidence = 255;
       }
       if (clock->tickdiff < MESHTIME_CONFIDENCE_UP)
       {
         confidence = (confidence * clock->tickdiff) / MESHTIME_CONFIDENCE_UP;
       }
       confidence = (confidence * remotetime->confidence) >> 8;
-
+      if (confidence < 2)
+      {
+        confidence = 2;
+      }
       clock->confidence = (uint8_t)confidence;
       clock->scale = scale;
     }
@@ -168,7 +177,7 @@ found:;
   else
   {
     clock->tickdiff = 0;
-    clock->scale = (1LL << MESHTIME_SCALEOFFSET) / 1000LL;
+    clock->scale = (1 << MESHTIME_SCALEOFFSET) / 1000;
     clock->confidence = 1;
     clock->id = id;
   }
@@ -185,11 +194,17 @@ static uint8_t meshtime_getconfidence(meshtime_clock* clock)
   {
     decay = (100 * (MESHTIME_CONFIDENCE_DOWN - since)) / MESHTIME_CONFIDENCE_DOWN;
   }
-  return (uint8_t)((clock->confidence * (900 + decay)) / 1000);
+  return (uint8_t)((((uint32_t)clock->confidence) * (900 + decay)) / 1000);
 }
 
 void Mesh_System_SetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* remotetime)
 {
+  // Ignore unset clocks
+  if (remotetime->time == 0)
+  {
+    return;
+  }
+
   meshtime_updateclock(id, remotetime);
 
   // Generate our own clock based on the clocks we know about with the highest confidence
@@ -214,7 +229,7 @@ uint32_t meshtime_currenttime(void)
 {
   if (meshtime_state.clock->time)
   {
-    return meshtime_state.clock->time + (uint32_t)(((meshtime_tick() - meshtime_state.clock->tick) * meshtime_state.clock->scale) >> MESHTIME_SCALEOFFSET);
+    return meshtime_state.clock->time + (uint32_t)(((meshtime_tick() - meshtime_state.clock->tick) * U64(meshtime_state.clock->scale)) >> MESHTIME_SCALEOFFSET);
   }
   else
   {
