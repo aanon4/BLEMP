@@ -133,13 +133,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
           node->sync.neighbor->flag.retry = 0;
           node->ids[arg].flag.blacklisted = 0;
           node->sync.neighbor->retries = 0;
-#if ENABLE_MESH_MALLOC
-          node->sync.value.buffer = Mesh_System_Malloc(MESH_MAX_VALUE_SIZE);
-          if (node->sync.value.buffer == NULL)
-          {
-            status = MESH_OOM;
-          }
-#endif
         }
         break;
 
@@ -209,14 +202,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
       case MESH_EVENT_INMASTERMODE:
         // In master mode - find someone to sync with
         node->lastsync = Mesh_System_Tick();
-#if ENABLE_MESH_MALLOC
-        node->sync.value.buffer = Mesh_System_Malloc(MESH_MAX_VALUE_SIZE);
-        if (node->sync.value.buffer == NULL)
-        {
-          status = MESH_OOM;
-          goto nosync;
-        }
-#endif
       lookforsync:;
         node->sync.remainingbits = Mesh_GetChangeBits(node);
         if (node->sync.remainingbits && Mesh_System_Connect(node) == MESH_OK)
@@ -225,11 +210,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         }
         else
         {
-#if ENABLE_MESH_MALLOC
-          Mesh_System_Free(node->sync.value.buffer);
-          node->sync.value.buffer = NULL;
-#endif
-        nosync:;
           // No one left changed.
           node->sync.neighbor = NULL;
           node->state = MESH_STATE_SWITCHTOPERIPHERAL;
@@ -477,7 +457,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                       // Handle the time key a little specially
                       if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.value.length == sizeof(Mesh_Clock) && MESH_KEY_MATCH(node->sync.value.key, MESH_KEY_TIME))
                       {
-                        Mesh_System_SetClock(node, node->sync.neighbor->id, (Mesh_Clock*)value);
+                        // Avoid alignment problems
+                        Mesh_Clock clock;
+                        Mesh_System_memmove(&clock, value, sizeof(clock));
+                        Mesh_System_SetClock(node, node->sync.neighbor->id, &clock);
                         status = MESH_NOCHANGE;
                       }
                       else
@@ -746,7 +729,10 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
               // Time key special case - update immediately before use
               if (node->sync.id == MESH_NODEID_GLOBAL && node->sync.ukv->length == sizeof(Mesh_Clock) && MESH_KEY_MATCH(node->sync.ukv->key, MESH_KEY_TIME))
               {
-                Mesh_System_GetClock(node, node->sync.neighbor->id, (Mesh_Clock*)MESH_UKV_VALUE(node->sync.ukv));
+                // Avoid alignment problems
+                Mesh_Clock clock;
+                Mesh_System_GetClock(node, node->sync.neighbor->id, &clock);
+                Mesh_System_memmove(MESH_UKV_VALUE(node->sync.ukv), &clock, sizeof(clock));
               }
               if (pos >= MESH_MAX_WRITE_SIZE)
               {
@@ -863,10 +849,6 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 }
               }
             }
-#if ENABLE_MESH_MALLOC
-            Mesh_System_Free(node->sync.value.buffer);
-            node->sync.value.buffer = NULL;
-#endif
             if (changes)
             {
               node->state = MESH_STATE_SWITCHTOMASTER;
@@ -1174,7 +1156,10 @@ Mesh_Status Mesh_AddNeighbor(Mesh_Node* node, Mesh_NodeId id, Mesh_Neighbor** ne
   {
     for (Mesh_UKV* ukv = &node->values.values[node->values.count - 1]; ukv >= &node->values.values[0]; ukv--)
     {
-      ukv->changebits |= bit;
+      if (!MESH_KEY_MATCH(ukv->key, MESH_KEY_TIME))
+      {
+        ukv->changebits |= bit;
+      }
     }
   }
   else
@@ -1276,6 +1261,7 @@ Mesh_Status Mesh_ForgetNodeId(Mesh_Node* node, Mesh_NodeId id, Mesh_Reason reaso
         if (!MESH_UKV_CANINLINE(ukv[i].length))
         {
           Mesh_System_Free(ukv[i].data.ptr);
+          ukv[i].data.ptr = NULL;
         }
 #endif
       }

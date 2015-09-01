@@ -312,8 +312,6 @@ typedef struct Mesh_Node
 #if MESH_MAX_VALUE_SIZE <= MESH_MAX_WRITE_SIZE - 5
       // Not used if we can always fit a value into a write buffer
       unsigned char   buffer[0];
-#elif ENABLE_MESH_MALLOC
-      unsigned char*  buffer;
 #else
       unsigned char   buffer[MESH_MAX_VALUE_SIZE];
 #endif
