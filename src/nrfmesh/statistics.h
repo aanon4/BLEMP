@@ -27,6 +27,7 @@ struct statistics
 	uint32_t	disconnect_count;
 	uint32_t 	disconnecting_total_time_ms;
 	uint32_t	discover_count;
+	uint32_t  discover_success_count;
 	uint32_t	discover_total_time_ms;
 	uint32_t	scan_start_count;
 	uint32_t	scan_nostart_count;
