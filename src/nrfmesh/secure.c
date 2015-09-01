@@ -351,6 +351,9 @@ void secure_ble_event(ble_evt_t* event)
     }
     break;
 
+  case BLE_GAP_EVT_CONN_SEC_UPDATE:
+    break;
+
   case BLE_GAP_EVT_AUTH_KEY_REQUEST:
     err_code = sd_ble_gap_auth_key_reply(event->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_OOB, secure_state.oob);
     APP_ERROR_CHECK(err_code);
