@@ -19,10 +19,11 @@
 #include "meshtime.h"
 
 #define MESHTIME_NR_CLOCKS          MESH_MAX_NEIGHBORS
-#define MESHTIME_CONFIDENCE_UP      (1000 * 60 * 60 * 2)  // 2 hour
-#define MESHTIME_CONFIDENCE_DOWN    (1000 * 60 * 60 * 12) // 12 hours
+#define MESHTIME_CONFIDENCE_UP      (1000 * 60 * 60 * 2)      //  2 hour
+#define MESHTIME_CONFIDENCE_DOWN    (1000 * 60 * 60 * 24 * 2) // 48 hours
 #define MESHTIME_SCALEOFFSET        30LL
 
+#define U32(V)                      ((uint32_t)(V))
 #define U64(V)                      ((uint64_t)(V))
 
 const Mesh_Key MESH_KEY_KEEPALIVE = _MESH_KEY_KEEPALIVE;
@@ -137,41 +138,18 @@ found:;
     clock->tickdiff = tickdiff + lastdiff;
     if (clock->tickdiff)
     {
-      uint32_t scale = (uint32_t)((U64(remotetime->time - clock->time) << MESHTIME_SCALEOFFSET + U64(clock->scale) * U64(lastdiff)) / U64(clock->tickdiff));
-
+      clock->scale = (uint32_t)((U64(remotetime->time - clock->time) << MESHTIME_SCALEOFFSET + U64(clock->scale) * U64(lastdiff)) / U64(clock->tickdiff));
       // The confidence of the clock reflects how likely it is to be accurate - having the correct time now and the correct time in the future.
       // The higher the value, the likelier it is that the clock is good.
-      // The clock can never be better than the remote clock it sync's against, so that limits the confidence. We also limit it if we don't have
-      // a sufficiently long sample time. We assume that if subsequent calculations of the scale are the same, the clock is running accurately, but
-      // may not have the correct base time yet.
-      uint32_t confidence;
-      if (scale == 0 || clock->scale == 0)
+      // The curve is 1 - 1/(1+25x)
+      if (clock->tickdiff < MESHTIME_CONFIDENCE_UP)
       {
-        confidence = 0;
-      }
-      else if (scale < clock->scale)
-      {
-        confidence = (255 * scale) / clock->scale;
-      }
-      else if (clock->scale < scale)
-      {
-        confidence = (255 * clock->scale) / scale;
+        clock->confidence = (uint8_t)((remotetime->confidence * (256 - (256 * 256) / (256 + ((25 * 256 * clock->tickdiff) / MESHTIME_CONFIDENCE_UP)))) >> 8);
       }
       else
       {
-        confidence = 255;
+        clock->confidence = remotetime->confidence;
       }
-      if (clock->tickdiff < MESHTIME_CONFIDENCE_UP)
-      {
-        confidence = (confidence * clock->tickdiff) / MESHTIME_CONFIDENCE_UP;
-      }
-      confidence = (confidence * remotetime->confidence) >> 8;
-      if (confidence < 2)
-      {
-        confidence = 2;
-      }
-      clock->confidence = (uint8_t)confidence;
-      clock->scale = scale;
     }
   }
   else
@@ -188,13 +166,17 @@ found:;
 static uint8_t meshtime_getconfidence(meshtime_clock* clock)
 {
   // We decay the confidence value of the clock the longer it is since it was synchronized
+  // The curve is 1-1/x^2
   uint64_t since = meshtime_tick() - clock->tick;
-  uint32_t decay = 0;
   if (since < MESHTIME_CONFIDENCE_DOWN)
   {
-    decay = (100 * (MESHTIME_CONFIDENCE_DOWN - since)) / MESHTIME_CONFIDENCE_DOWN;
+    since = 256 * since / MESHTIME_CONFIDENCE_DOWN;
+    return (uint8_t)(U64(clock->confidence) * ((2 * 256) - ((2 * 256 * 256 * 256) / ((2 * 256 * 256) - since * since)))) >> 8;
   }
-  return (uint8_t)((((uint32_t)clock->confidence) * (900 + decay)) / 1000);
+  else
+  {
+    return 0;
+  }
 }
 
 void Mesh_System_SetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* remotetime)
