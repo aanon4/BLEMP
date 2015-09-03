@@ -33,10 +33,11 @@ typedef struct
 {
   Mesh_NodeId id;             // ID of clock
   uint8_t  confidence;        // Confidence clock is correct. The higher the better
-  uint32_t time;              // External time for last update
-  uint32_t tickdiff;          // Ticks used to calculate scale
   uint32_t scale;             // Number of ticks per second (34.30 fixed point)
+  uint32_t time;              // External time for last update
+  uint32_t timediff;
   uint64_t tick;              // Tick value for last update
+  uint32_t tickdiff;          // Ticks used to calculate scale
 } meshtime_clock;
 
 static struct
@@ -126,30 +127,39 @@ static void meshtime_updateclock(Mesh_NodeId id, Mesh_Clock* remotetime)
     }
   }
 found:;
-
   if (clock->time)
   {
-    uint32_t lastdiff = clock->tickdiff;
-    uint32_t tickdiff = (uint32_t)(tick - lastdiff);
-    if (tickdiff + lastdiff > MESHTIME_CONFIDENCE_UP)
+    uint32_t tickdiff = (uint32_t)(tick - clock->tick);
+    uint32_t timediff = remotetime->time - clock->time;
+    if (tickdiff > MESHTIME_CONFIDENCE_UP)
     {
-      lastdiff = tickdiff > MESHTIME_CONFIDENCE_UP ? 0 : MESHTIME_CONFIDENCE_UP - tickdiff;
+      clock->timediff = timediff;
+      clock->tickdiff = tickdiff;
     }
-    clock->tickdiff = tickdiff + lastdiff;
+    else if (clock->tickdiff + tickdiff > MESHTIME_CONFIDENCE_UP)
+    {
+      clock->timediff = timediff + (clock->timediff * (MESHTIME_CONFIDENCE_UP - tickdiff)) / clock->tickdiff;
+      clock->tickdiff = MESHTIME_CONFIDENCE_UP;
+    }
+    else
+    {
+      clock->timediff += timediff;
+      clock->tickdiff += tickdiff;
+    }
     if (clock->tickdiff)
     {
-      clock->scale = (uint32_t)((U64(remotetime->time - clock->time) << MESHTIME_SCALEOFFSET + U64(clock->scale) * U64(lastdiff)) / U64(clock->tickdiff));
-      // The confidence of the clock reflects how likely it is to be accurate - having the correct time now and the correct time in the future.
-      // The higher the value, the likelier it is that the clock is good.
-      // The curve is 1 - 1/(1+25x)
-      if (clock->tickdiff < MESHTIME_CONFIDENCE_UP)
-      {
-        clock->confidence = (uint8_t)((remotetime->confidence * (256 - (256 * 256) / (256 + ((25 * 256 * clock->tickdiff) / MESHTIME_CONFIDENCE_UP)))) >> 8);
-      }
-      else
-      {
-        clock->confidence = remotetime->confidence;
-      }
+      clock->scale = U32((U64(clock->timediff) << MESHTIME_SCALEOFFSET) / clock->tickdiff);
+    }
+    // The confidence of the clock reflects how likely it is to be accurate - having the correct time now and the correct time in the future.
+    // The higher the value, the likelier it is that the clock is good.
+    // The curve is 1 - 1/(1+25x)
+    if (clock->tickdiff < MESHTIME_CONFIDENCE_UP)
+    {
+      clock->confidence = (uint8_t)((remotetime->confidence * (256 - (256 * 256) / (256 + ((25 * 256 * clock->tickdiff) / MESHTIME_CONFIDENCE_UP)))) >> 8);
+    }
+    else
+    {
+      clock->confidence = remotetime->confidence;
     }
   }
   else
