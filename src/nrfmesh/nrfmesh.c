@@ -45,6 +45,20 @@ static struct
 };
 Mesh_Node mesh_node;
 
+//#define DEBUG_EVENTS  1
+
+#define MAX_CONCURRENT_CONNECTION_ATTEMPTS  1
+
+#if defined(DEBUG_EVENTS)
+
+#define DEBUG_EVENT_MAX   256
+struct debug_event
+{
+  uint8_t   evt_id;
+} debug_events[DEBUG_EVENT_MAX];
+
+#endif
+
 void nrfmesh_init(void)
 {
 	uint32_t err_code;
@@ -158,6 +172,21 @@ void nrfmesh_ble_event(ble_evt_t* event)
 	};
 
 	uint32_t err_code;
+
+#if defined(DEBUG_EVENTS)
+	{
+    switch (event->header.evt_id)
+    {
+    case BLE_GAP_EVT_RSSI_CHANGED:
+      break;
+
+    default:
+      memmove(debug_events + 1, debug_events, sizeof(struct debug_event) * (DEBUG_EVENT_MAX - 1));
+      debug_events[0].evt_id = event->header.evt_id;
+      break;
+    }
+	}
+#endif
 
 	secure_ble_event(event);
 
@@ -280,6 +309,8 @@ void nrfmesh_ble_event(ble_evt_t* event)
 					if (chr->uuid.type == UUIDS_BASE_TYPE && chr->uuid.uuid == MESH_SYNC_UUID)
 					{
 						mesh_node.sync.neighbor->handle = chr->handle_value;
+						STAT_RECORD_INC(discover_success_count);
+		        STAT_TIMER_END(discover_total_time_ms);
 						goto connected;
 					}
 				}
@@ -421,17 +452,29 @@ void nrfmesh_ble_event(ble_evt_t* event)
 		  STAT_RECORD_INC(connection_timeout_count);
 		  // Flag each neighbor we failed to connect to
 		  uint8_t addr_count = 0;
-		  for (Mesh_Neighbor* neighbor = &mesh_node.neighbors.neighbors[0]; neighbor < &mesh_node.neighbors.neighbors[MESH_MAX_NEIGHBORS] && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor++)
+		  uint8_t total_count = 0;
+		  Mesh_ChangeBits remainingbits = mesh_node.sync.remainingbits;
+		  for (Mesh_Neighbor* neighbor = &mesh_node.neighbors.neighbors[0]; neighbor < &mesh_node.neighbors.neighbors[MESH_MAX_NEIGHBORS]; neighbor++)
 		  {
-			  if (neighbor->flag.valid && !neighbor->flag.retry && (mesh_node.sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(&mesh_node, neighbor)))
-			  {
-			    neighbor->flag.retry = 1;
-			    neighbor->retries++;
-			    if (!mesh_node.ids[neighbor->id].flag.client)
-			    {
-			      addr_count++;
-			    }
-			  }
+		    if (neighbor->flag.valid && mesh_node.ids[neighbor->id].flag.client && !neighbor->flag.retry && (remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(&mesh_node, neighbor)))
+		    {
+		      neighbor->flag.retry = 1;
+		      neighbor->retries++;
+		      total_count++;
+		    }
+		  }
+		  if (total_count == 0)
+		  {
+		    for (Mesh_Neighbor* neighbor = &mesh_node.neighbors.neighbors[0]; total_count < MAX_CONCURRENT_CONNECTION_ATTEMPTS && neighbor < &mesh_node.neighbors.neighbors[MESH_MAX_NEIGHBORS] && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor++)
+		    {
+		      if (neighbor->flag.valid && !mesh_node.ids[neighbor->id].flag.client && !neighbor->flag.retry && (remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(&mesh_node, neighbor)))
+		      {
+		        neighbor->flag.retry = 1;
+            neighbor->retries++;
+            total_count++;
+            addr_count++;
+		      }
+		    }
 		  }
 		  Mesh_Process(&mesh_node, MESH_EVENT_CONNECTIONFAILED, 0, 0);
 		  break;
@@ -515,34 +558,40 @@ Mesh_Status Mesh_System_Connect(Mesh_Node* node)
   ble_gap_irk_t* p_irks[BLE_GAP_WHITELIST_IRK_MAX_COUNT];
   uint8_t addr_count = 0;
   uint8_t irk_count = 0;
+  uint8_t total_count = 0;
 
+  // Prioritize clients
+  Mesh_ChangeBits remainingbits = node->sync.remainingbits;
   for (Mesh_Neighbor* neighbor = &node->neighbors.neighbors[0]; neighbor < &node->neighbors.neighbors[MESH_MAX_NEIGHBORS] && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor++)
   {
-    if (neighbor->flag.valid && !neighbor->flag.retry && (mesh_node.sync.remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor)))
+    if (neighbor->flag.valid && node->ids[neighbor->id].flag.client && !neighbor->flag.retry && (remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor)))
     {
-      if (!mesh_node.ids[neighbor->id].flag.client)
+      irk_count = secure_get_irks(irks);
+      for (uint8_t i = irk_count; i--; )
+      {
+        p_irks[i] = &irks[i];
+      }
+      total_count += irk_count;
+      break;
+    }
+  }
+  if (total_count == 0)
+  {
+    for (Mesh_Neighbor* neighbor = &node->neighbors.neighbors[0]; total_count < MAX_CONCURRENT_CONNECTION_ATTEMPTS && neighbor < &node->neighbors.neighbors[MESH_MAX_NEIGHBORS] && addr_count < BLE_GAP_WHITELIST_ADDR_MAX_COUNT; neighbor++)
+    {
+      if (neighbor->flag.valid && !node->ids[neighbor->id].flag.client && !neighbor->flag.retry && (remainingbits & MESH_NEIGHBOR_TO_CHANGEBIT(node, neighbor)))
       {
         addrs[addr_count].addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC;
-        Mesh_System_memmove(&addrs[addr_count].addr, &mesh_node.ids[neighbor->id].address, sizeof(Mesh_NodeAddress));
+        Mesh_System_memmove(&addrs[addr_count].addr, &node->ids[neighbor->id].address, sizeof(Mesh_NodeAddress));
         p_addrs[addr_count] = &addrs[addr_count];
         addr_count++;
-      }
-      else
-      {
-        if (irk_count == 0)
-        {
-          irk_count = secure_get_irks(irks);
-          for (uint8_t i = irk_count; i--; )
-          {
-            p_irks[i] = &irks[i];
-          }
-        }
+        total_count++;
       }
     }
   }
 
   // If we have nothing to do, return now
-  if (irk_count == 0 && addr_count == 0)
+  if (total_count == 0)
   {
     return MESH_NOTFOUND;
   }
