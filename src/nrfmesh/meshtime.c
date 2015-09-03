@@ -22,6 +22,7 @@
 #define MESHTIME_CONFIDENCE_UP      (1000 * 60 * 60 * 2)      //  2 hour
 #define MESHTIME_CONFIDENCE_DOWN    (1000 * 60 * 60 * 24 * 2) // 48 hours
 #define MESHTIME_SCALEOFFSET        30LL
+#define MESHTIME_DECAYOFFSET        8
 
 #define U32(V)                      ((uint32_t)(V))
 #define U64(V)                      ((uint64_t)(V))
@@ -59,8 +60,8 @@ void meshtime_timer_handler(void)
 
 uint64_t meshtime_tick(void)
 {
-  static uint64_t bigticks;
-  static uint32_t lastticks;
+  static uint64_t bigtick;
+  static uint32_t lasttick;
 
   uint32_t err_code;
 
@@ -68,15 +69,15 @@ uint64_t meshtime_tick(void)
   err_code = app_timer_cnt_get(&count); // MAX == 0x00FFFFFF
   APP_ERROR_CHECK(err_code);
 
-  if (count < lastticks)
+  if (count < lasttick)
   {
-    bigticks += 0x0000000001000000LL;
+    bigtick += 0x0000000001000000LL;
   }
-  lastticks = count;
-  bigticks = (bigticks & 0xFFFFFFFFFF000000) | count;
+  lasttick = count;
+  bigtick = (bigtick & 0xFFFFFFFFFF000000) | count;
 
   // Convert machine ticks to milliseconds
-  return (bigticks * APP_TIMER_PRESCALER * 1000) / 32768;
+  return (bigtick * APP_TIMER_PRESCALER * 1000) / 32768;
 }
 
 static void meshtime_updateclock(Mesh_NodeId id, Mesh_Clock* remotetime)
@@ -181,7 +182,8 @@ static uint8_t meshtime_getconfidence(meshtime_clock* clock)
   if (since < MESHTIME_CONFIDENCE_DOWN)
   {
     since = 256 * since / MESHTIME_CONFIDENCE_DOWN;
-    return (uint8_t)(U64(clock->confidence) * ((2 * 256) - ((2 * 256 * 256 * 256) / ((2 * 256 * 256) - since * since)))) >> 8;
+#define ONE_L_DECAYOFFSET (1 << MESHTIME_DECAYOFFSET)
+    return (uint8_t)((U64(clock->confidence) * ((2 * ONE_L_DECAYOFFSET) - ((2 * ONE_L_DECAYOFFSET * ONE_L_DECAYOFFSET * ONE_L_DECAYOFFSET) / ((2 * ONE_L_DECAYOFFSET * ONE_L_DECAYOFFSET) - since * since)))) >> MESHTIME_DECAYOFFSET);
   }
   else
   {
