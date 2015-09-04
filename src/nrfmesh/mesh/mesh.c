@@ -550,9 +550,17 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
                 break;
 
               case MESH_PAYLOADRESET:
-                for (Mesh_UKV* ukv = &node->values.values[node->values.count - 1]; ukv >= &node->values.values[0]; ukv--)
+                if (pos + sizeof(Mesh_NodeAddress) > node->sync.bufferlen)
                 {
-                  ukv->changebits |= node->sync.neighborchangebit;
+                  status = MESH_BADPAYLOAD;
+                }
+                else
+                {
+                  for (Mesh_UKV* ukv = &node->values.values[node->values.count - 1]; ukv >= &node->values.values[0]; ukv--)
+                  {
+                    ukv->changebits |= node->sync.neighborchangebit;
+                  }
+                  pos += sizeof(Mesh_NodeAddress);
                 }
                 break;
 
@@ -632,11 +640,17 @@ Mesh_Status Mesh_Process(Mesh_Node* node, Mesh_Event event, unsigned char arg, M
         {
           if (node->sync.neighbor->flag.reset)
           {
-            node->sync.neighbor->flag.reset = 0;
             if (node->state == MESH_STATE_SYNCMASTERWRITING)
             {
+              if (pos + 1 + sizeof(Mesh_NodeAddress) > MESH_MAX_WRITE_SIZE)
+              {
+                break;
+              }
               node->sync.buffer[pos++] = MESH_PAYLOADRESET;
+              Mesh_System_memmove(&node->sync.buffer[pos], &node->ids[MESH_NODEID_SELF].address, sizeof(Mesh_NodeAddress));
+              pos += sizeof(Mesh_NodeAddress);
             }
+            node->sync.neighbor->flag.reset = 0;
           }
           else if (node->sync.count == 0)
           {
