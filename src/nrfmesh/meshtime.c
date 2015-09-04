@@ -24,6 +24,8 @@
 #define MESHTIME_SCALEOFFSET        30LL
 #define MESHTIME_DECAYOFFSET        8
 
+#define ONE_L_DECAYOFFSET           (1 << MESHTIME_DECAYOFFSET)
+
 #define U32(V)                      ((uint32_t)(V))
 #define U64(V)                      ((uint64_t)(V))
 
@@ -137,26 +139,30 @@ found:;
       clock->timediff = timediff;
       clock->tickdiff = tickdiff;
     }
-    else if (clock->tickdiff + tickdiff > MESHTIME_CONFIDENCE_UP)
-    {
-      clock->timediff = timediff + (clock->timediff * (MESHTIME_CONFIDENCE_UP - tickdiff)) / clock->tickdiff;
-      clock->tickdiff = MESHTIME_CONFIDENCE_UP;
-    }
-    else
+    else if (clock->tickdiff + tickdiff < MESHTIME_CONFIDENCE_UP)
     {
       clock->timediff += timediff;
       clock->tickdiff += tickdiff;
+      if (clock->tickdiff == 0)
+      {
+        clock->tickdiff = 1;
+      }
     }
-    if (clock->tickdiff)
+    else
     {
-      clock->scale = U32((U64(clock->timediff) << MESHTIME_SCALEOFFSET) / clock->tickdiff);
+      uint64_t tick_overflow = MESHTIME_CONFIDENCE_UP - tickdiff;
+      uint64_t time_overflow = (tick_overflow * U64(clock->scale)) >> MESHTIME_SCALEOFFSET;
+      clock->timediff = timediff + time_overflow;
+      clock->tickdiff = MESHTIME_CONFIDENCE_UP;
     }
+    clock->scale = U32((U64(clock->timediff) << MESHTIME_SCALEOFFSET) / clock->tickdiff);
+
     // The confidence of the clock reflects how likely it is to be accurate - having the correct time now and the correct time in the future.
     // The higher the value, the likelier it is that the clock is good.
     // The curve is 1 - 1/(1+25x)
     if (clock->tickdiff < MESHTIME_CONFIDENCE_UP)
     {
-      clock->confidence = (uint8_t)((remotetime->confidence * (256 - (256 * 256) / (256 + ((25 * 256 * clock->tickdiff) / MESHTIME_CONFIDENCE_UP)))) >> 8);
+      clock->confidence = (uint8_t)((remotetime->confidence * (ONE_L_DECAYOFFSET - (ONE_L_DECAYOFFSET * ONE_L_DECAYOFFSET) / (ONE_L_DECAYOFFSET + ((25 * ONE_L_DECAYOFFSET * clock->tickdiff) / MESHTIME_CONFIDENCE_UP)))) >> MESHTIME_DECAYOFFSET);
     }
     else
     {
@@ -165,6 +171,7 @@ found:;
   }
   else
   {
+    clock->timediff = 0;
     clock->tickdiff = 0;
     clock->scale = (1 << MESHTIME_SCALEOFFSET) / 1000;
     clock->confidence = 1;
@@ -182,7 +189,6 @@ static uint8_t meshtime_getconfidence(meshtime_clock* clock)
   if (since < MESHTIME_CONFIDENCE_DOWN)
   {
     since = 256 * since / MESHTIME_CONFIDENCE_DOWN;
-#define ONE_L_DECAYOFFSET (1 << MESHTIME_DECAYOFFSET)
     return (uint8_t)((U64(clock->confidence) * ((2 * ONE_L_DECAYOFFSET) - ((2 * ONE_L_DECAYOFFSET * ONE_L_DECAYOFFSET * ONE_L_DECAYOFFSET) / ((2 * ONE_L_DECAYOFFSET * ONE_L_DECAYOFFSET) - since * since)))) >> MESHTIME_DECAYOFFSET);
   }
   else
@@ -233,7 +239,7 @@ uint32_t meshtime_currenttime(void)
 
 void Mesh_System_GetClock(Mesh_Node* node, Mesh_NodeId id, Mesh_Clock* localtime)
 {
-  localtime->confidence = meshtime_getconfidence(meshtime_state.clock);
+  localtime->confidence = (uint8_t)(((ONE_L_DECAYOFFSET - 32) * (uint32_t)meshtime_getconfidence(meshtime_state.clock)) >> MESHTIME_DECAYOFFSET);
   localtime->time = meshtime_currenttime();
 }
 
