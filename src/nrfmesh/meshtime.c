@@ -52,7 +52,13 @@ static struct
 
 void meshtime_timer_handler(void)
 {
-  if (TIMER_N_MINUTES(MESH_TIMESYNC_TIME / 60))
+  // We run the keepalive every five minutes for the first 15 minutes to get the clocks in sync
+  if (
+      TIMER_MINUTES(5) ||
+      TIMER_MINUTES(10) ||
+      TIMER_MINUTES(15) ||
+      TIMER_N_MINUTES(MESH_TIMESYNC_TIME / 60)
+     )
   {
     meshtime_state.keepalive++;
     Mesh_SetValue(&mesh_node, MESH_NODEID_SELF, MESH_KEY_KEEPALIVE, (uint8_t*)&meshtime_state.keepalive, sizeof(meshtime_state.keepalive));

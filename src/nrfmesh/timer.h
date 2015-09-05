@@ -18,6 +18,7 @@ extern uint32_t meshtimer_value;
 
 #define	MS_TO_TICKS(MS)					      (APP_TIMER_TICKS(MS, APP_TIMER_PRESCALER))
 
+#define TIMER_MINUTES(MINS)           (meshtimer_value == (MINS))
 #define TIMER_N_MINUTES(MINS)         (meshtimer_value % (MINS) == 0)
 
 // The one minute timer is use to hang many period things from. This lets us do many
