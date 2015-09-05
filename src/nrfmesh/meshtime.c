@@ -58,7 +58,7 @@ void meshtime_timer_handler(void)
       TIMER_MINUTES(10) ||
       TIMER_MINUTES(15) ||
       TIMER_N_MINUTES(MESH_TIMESYNC_TIME / 60)
-     )
+  )
   {
     meshtime_state.keepalive++;
     Mesh_SetValue(&mesh_node, MESH_NODEID_SELF, MESH_KEY_KEEPALIVE, (uint8_t*)&meshtime_state.keepalive, sizeof(meshtime_state.keepalive));
@@ -135,7 +135,7 @@ static void meshtime_updateclock(Mesh_NodeId id, Mesh_Clock* remotetime)
       return;
     }
   }
-found:;
+  found:;
   if (clock->time)
   {
     uint32_t tickdiff = (uint32_t)(tick - clock->tick);
@@ -259,29 +259,29 @@ void meshtime_init(void)
 
   static const ble_gatts_attr_md_t metadata =
   {
-    .read_perm = { 1, 2 },
-    .vlen = 1,
-    .vloc = BLE_GATTS_VLOC_USER
+      .read_perm = { 1, 2 },
+      .vlen = 1,
+      .vloc = BLE_GATTS_VLOC_USER
   };
   static const ble_uuid_t uuid =
   {
-    .type = UUIDS_BASE_TYPE,
-    .uuid = 10
+      .type = UUIDS_BASE_TYPE,
+      .uuid = 10
   };
   static const ble_gatts_attr_t attr =
   {
-    .p_uuid = (ble_uuid_t*)&uuid,
-    .p_attr_md = (ble_gatts_attr_md_t*)&metadata,
-    .init_len = sizeof(meshtime_state),
-    .max_len = sizeof(meshtime_state),
-    .p_value = (uint8_t*)&meshtime_state
+      .p_uuid = (ble_uuid_t*)&uuid,
+      .p_attr_md = (ble_gatts_attr_md_t*)&metadata,
+      .init_len = sizeof(meshtime_state),
+      .max_len = sizeof(meshtime_state),
+      .p_value = (uint8_t*)&meshtime_state
   };
   static const ble_gatts_char_md_t characteristic =
   {
-    .char_props.read = 1,
-    .p_char_user_desc = "Time",
-    .char_user_desc_max_size = 4,
-    .char_user_desc_size = 4
+      .char_props.read = 1,
+      .p_char_user_desc = "Time",
+      .char_user_desc_max_size = 4,
+      .char_user_desc_size = 4
   };
   ble_gatts_char_handles_t newhandle;
   err_code = sd_ble_gatts_characteristic_add(primary_service_handle, &characteristic, &attr, &newhandle);

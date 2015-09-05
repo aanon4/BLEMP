@@ -193,9 +193,9 @@ typedef struct Mesh_UKV
   unsigned char   length;
   union
   {
-	  unsigned char  value[MESH_DEFAULT_VALUE_SIZE];
+    unsigned char  value[MESH_DEFAULT_VALUE_SIZE];
 #if ENABLE_MESH_MALLOC
-	  unsigned char* ptr;
+    unsigned char* ptr;
 #endif
   }               data;
 } Mesh_UKV;
@@ -324,7 +324,7 @@ typedef struct Mesh_Node
 } Mesh_Node;
 
 #define MESH_NODEID_FREE(NODE, ID) \
-  (!((NODE)->ids[ID].flag.neighbor || (NODE)->ids[ID].flag.ukv || (NODE)->ids[ID].flag.blacklisted))
+    (!((NODE)->ids[ID].flag.neighbor || (NODE)->ids[ID].flag.ukv || (NODE)->ids[ID].flag.blacklisted))
 
 typedef struct Mesh_Clock
 {

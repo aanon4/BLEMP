@@ -26,12 +26,12 @@ void meshinfo_init(void)
     unsigned value_timesync_interval;
   } __attribute__((packed)) info =
   {
-    MESHINFO_KEY_ADVERTISING_INTERVAL,
-    MESH_ADVERTISING_PERIOD,
-    MESHINFO_KEY_POWER_SOURCE,
-    1,
-    MESHINFO_KEY_TIMESYNC_INTERVAL,
-    MESH_TIMESYNC_TIME
+      MESHINFO_KEY_ADVERTISING_INTERVAL,
+      MESH_ADVERTISING_PERIOD,
+      MESHINFO_KEY_POWER_SOURCE,
+      1,
+      MESHINFO_KEY_TIMESYNC_INTERVAL,
+      MESH_TIMESYNC_TIME
   };
   Mesh_SetValue(&mesh_node, MESH_NODEID_SELF, MESH_KEY_INFO, (unsigned char*)&info, sizeof(info));
 }

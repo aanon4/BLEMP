@@ -59,39 +59,39 @@ static struct
   uint8_t               pairing;
 } secure_state =
 {
-  .addr_type = -1,
-  .endpoint_addr =
-  {
-    .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
-    .addr = { SECURE_CLIENT_ADDRESS | 0xC0 }
-  },
-  .periph_auth =
-  {
-    .bond = 1,
-    .mitm = 1,
-    .io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY,
-    .oob = 1,
-    .min_key_size = 16,
-    .max_key_size = 16,
-    .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
-    .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
-  },
-  .mesh_auth =
-  {
-    .bond = 0,
-    .mitm = 1,
-    .io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY,
-    .oob = 1,
-    .min_key_size = 16,
-    .max_key_size = 16,
-    .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
-    .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
-  },
-  .keyset =
-  {
-    .keys_periph = { &secure_keys.p.enc, NULL, NULL },
-    .keys_central = { &secure_keys.c.enc, &secure_keys.c.id, NULL }
-  },
+    .addr_type = -1,
+    .endpoint_addr =
+    {
+        .addr_type = BLE_GAP_ADDR_TYPE_RANDOM_STATIC,
+        .addr = { SECURE_CLIENT_ADDRESS | 0xC0 }
+    },
+    .periph_auth =
+    {
+        .bond = 1,
+        .mitm = 1,
+        .io_caps = BLE_GAP_IO_CAPS_DISPLAY_ONLY,
+        .oob = 1,
+        .min_key_size = 16,
+        .max_key_size = 16,
+        .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
+        .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
+    },
+    .mesh_auth =
+    {
+        .bond = 0,
+        .mitm = 1,
+        .io_caps = BLE_GAP_IO_CAPS_KEYBOARD_ONLY,
+        .oob = 1,
+        .min_key_size = 16,
+        .max_key_size = 16,
+        .kdist_periph = { .enc = 1, .id = 1, .sign = 0 },
+        .kdist_central = { .enc = 1, .id = 1, .sign = 0 }
+    },
+    .keyset =
+    {
+        .keys_periph = { &secure_keys.p.enc, NULL, NULL },
+        .keys_central = { &secure_keys.c.enc, &secure_keys.c.id, NULL }
+    },
 };
 
 typedef struct
@@ -309,73 +309,73 @@ void secure_ble_event(ble_evt_t* event)
     }
     break;
 
-  case BLE_GAP_EVT_SEC_INFO_REQUEST:
-    if (secure_selectkey(event->evt.gap_evt.params.sec_info_request.master_id.ediv))
-    {
-      err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, &secure_keys.p.enc.enc_info, NULL, NULL);
-      APP_ERROR_CHECK(err_code);
-    }
-    else
-    {
-      err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, NULL, NULL, NULL);
-      APP_ERROR_CHECK(err_code);
-    }
-    break;
-
-  case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
-    if (secure_state.role == BLE_GAP_ROLE_CENTRAL)
-    {
-      err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, NULL, &secure_state.keyset);
-      APP_ERROR_CHECK(err_code);
-    }
-    else
-    {
-      if (event->evt.gap_evt.params.sec_params_request.peer_params.oob)
+    case BLE_GAP_EVT_SEC_INFO_REQUEST:
+      if (secure_selectkey(event->evt.gap_evt.params.sec_info_request.master_id.ediv))
       {
-        err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.mesh_auth, &secure_state.keyset);
+        err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, &secure_keys.p.enc.enc_info, NULL, NULL);
         APP_ERROR_CHECK(err_code);
       }
       else
       {
-        if (secure_state.pairing)
+        err_code = sd_ble_gap_sec_info_reply(event->evt.gap_evt.conn_handle, NULL, NULL, NULL);
+        APP_ERROR_CHECK(err_code);
+      }
+      break;
+
+    case BLE_GAP_EVT_SEC_PARAMS_REQUEST:
+      if (secure_state.role == BLE_GAP_ROLE_CENTRAL)
+      {
+        err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, NULL, &secure_state.keyset);
+        APP_ERROR_CHECK(err_code);
+      }
+      else
+      {
+        if (event->evt.gap_evt.params.sec_params_request.peer_params.oob)
         {
-          err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.periph_auth, &secure_state.keyset);
+          err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.mesh_auth, &secure_state.keyset);
           APP_ERROR_CHECK(err_code);
         }
         else
         {
-          err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP, NULL, NULL);
-          APP_ERROR_CHECK(err_code);
+          if (secure_state.pairing)
+          {
+            err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_SUCCESS, &secure_state.periph_auth, &secure_state.keyset);
+            APP_ERROR_CHECK(err_code);
+          }
+          else
+          {
+            err_code = sd_ble_gap_sec_params_reply(event->evt.gap_evt.conn_handle, BLE_GAP_SEC_STATUS_PAIRING_NOT_SUPP, NULL, NULL);
+            APP_ERROR_CHECK(err_code);
+          }
         }
       }
-    }
-    break;
+      break;
 
-  case BLE_GAP_EVT_CONN_SEC_UPDATE:
-    break;
+    case BLE_GAP_EVT_CONN_SEC_UPDATE:
+      break;
 
-  case BLE_GAP_EVT_AUTH_KEY_REQUEST:
-    err_code = sd_ble_gap_auth_key_reply(event->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_OOB, secure_state.oob);
-    APP_ERROR_CHECK(err_code);
-    break;
-
-  case BLE_GAP_EVT_AUTH_STATUS:
-    if (event->evt.gap_evt.params.auth_status.auth_status != BLE_GAP_SEC_STATUS_SUCCESS)
-    {
-      err_code = sd_ble_gap_disconnect(event->evt.gap_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+    case BLE_GAP_EVT_AUTH_KEY_REQUEST:
+      err_code = sd_ble_gap_auth_key_reply(event->evt.gap_evt.conn_handle, BLE_GAP_AUTH_KEY_TYPE_OOB, secure_state.oob);
       APP_ERROR_CHECK(err_code);
-    }
-    else
-    {
-      if (event->evt.gap_evt.params.auth_status.bonded)
-      {
-        secure_newkey(&secure_keys.p.enc, &secure_keys.c.id);
-      }
-    }
-    break;
+      break;
 
-  default:
-    break;
+    case BLE_GAP_EVT_AUTH_STATUS:
+      if (event->evt.gap_evt.params.auth_status.auth_status != BLE_GAP_SEC_STATUS_SUCCESS)
+      {
+        err_code = sd_ble_gap_disconnect(event->evt.gap_evt.conn_handle, BLE_HCI_REMOTE_USER_TERMINATED_CONNECTION);
+        APP_ERROR_CHECK(err_code);
+      }
+      else
+      {
+        if (event->evt.gap_evt.params.auth_status.bonded)
+        {
+          secure_newkey(&secure_keys.p.enc, &secure_keys.c.id);
+        }
+      }
+      break;
+
+    default:
+      break;
   }
 }
 
@@ -541,16 +541,16 @@ static uint8_t secure_check_irk_address(ble_gap_addr_t* address)
         uint8_t* irk = buf.buf + sizeof(uint16_t) + BLE_GAP_SEC_KEY_LEN;
         nrf_ecb_hal_data_t edata =
         {
-          .key =
-          {
-            irk[15], irk[14], irk[13], irk[12], irk[11], irk[10], irk[9], irk[8],
-            irk[7],  irk[6],  irk[5],  irk[4],  irk[3],  irk[2],  irk[1], irk[0]
-          },
-          .cleartext =
-          {
-            0, 0, 0, 0, 0, 0, 0, 0,
-            0, 0, 0, 0, 0, address->addr[5], address->addr[4], address->addr[3]
-          }
+            .key =
+            {
+                irk[15], irk[14], irk[13], irk[12], irk[11], irk[10], irk[9], irk[8],
+                irk[7],  irk[6],  irk[5],  irk[4],  irk[3],  irk[2],  irk[1], irk[0]
+            },
+            .cleartext =
+            {
+                0, 0, 0, 0, 0, 0, 0, 0,
+                0, 0, 0, 0, 0, address->addr[5], address->addr[4], address->addr[3]
+            }
         };
         err_code = sd_ecb_block_encrypt(&edata);
         APP_ERROR_CHECK(err_code);
