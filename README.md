@@ -1,5 +1,7 @@
 # Bluetooth Low Energy Mesh Protocol (BLEMP) demo
 
+**This project has moved to https://gitlab.com/timwilkinson/BLEMP**
+
 The Bluetooth Low Energy Mesh Protocol is written in C and built to link a randomly distributed set of Bluetooth nodes.
 These nodes form a mesh network, allowing data to be send and received between nodes which are not directly
 connected. The protocol is designed for battery operated devices, using as little as 20uA per node during normal operation.
